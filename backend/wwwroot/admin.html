@@ -1,0 +1,2214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title id="adminPageTitle">Hotel — Admin Panel</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--p:#1e3a5f;--p2:#2d5282;--acc:#c9a96e;--acc2:#e8d5a3;--bg:#f0f2f5;--card:#fff;--side:#0f1f33;--side2:#162840;--stxt:rgba(255,255,255,.72);--bdr:#e2e8f0;--ok:#059669;--err:#dc2626;--warn:#d97706;--info:#2563eb;--txt:#1a202c;--txt2:#4a5568;--r:6px;--shad:0 1px 8px rgba(0,0,0,.08);--shad2:0 4px 20px rgba(0,0,0,.12);}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt);font-size:.9rem;}
+
+/* ─── LOGIN ─── */
+#loginWrap{position:fixed;inset:0;background:linear-gradient(135deg,var(--side) 0%,var(--p) 60%,#2a5a8c 100%);display:flex;align-items:center;justify-content:center;z-index:9999;}
+.lcard{background:#fff;border-radius:12px;padding:2.5rem;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.35);}
+.lcard .brand{font-family:'Playfair Display',serif;font-size:1.5rem;color:var(--p);margin-bottom:.25rem;}
+.lcard .brand-sub{font-size:.78rem;color:var(--txt2);letter-spacing:1px;text-transform:uppercase;margin-bottom:2rem;}
+.lf{display:flex;flex-direction:column;gap:.3rem;margin-bottom:1rem;}
+.lf label{font-size:.72rem;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;}
+.lf input{padding:.7rem .9rem;border:1.5px solid var(--bdr);border-radius:var(--r);font-size:.9rem;font-family:'Inter',sans-serif;outline:none;transition:border-color .2s;}
+.lf input:focus{border-color:var(--p);}
+.lbtn{width:100%;padding:.8rem;background:var(--p);color:#fff;border:none;border-radius:var(--r);font-size:.88rem;font-weight:600;cursor:pointer;transition:background .2s;font-family:'Inter',sans-serif;letter-spacing:.5px;}
+.lbtn:hover{background:var(--p2);}
+.ldemo{text-align:center;margin-top:1rem;font-size:.78rem;color:var(--txt2);}
+#loginErr{font-size:.82rem;margin-bottom:.5rem;}
+
+/* ─── LAYOUT ─── */
+#appWrap{display:none;height:100vh;overflow:hidden;}
+.layout{display:flex;height:100vh;}
+
+/* ─── SIDEBAR ─── */
+.sidebar{width:235px;background:var(--side);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;}
+.sb-brand{padding:1.2rem 1.1rem;border-bottom:1px solid rgba(255,255,255,.07);}
+.sb-brand .hn{font-family:'Playfair Display',serif;font-size:1rem;color:var(--acc);line-height:1.2;}
+.sb-brand .hb{font-size:.68rem;color:rgba(255,255,255,.35);letter-spacing:1.5px;text-transform:uppercase;margin-top:.1rem;}
+.sb-sect{padding:.7rem 1.1rem .25rem;font-size:.6rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.3);}
+.nav-item{display:flex;align-items:center;gap:.65rem;padding:.62rem 1.1rem;cursor:pointer;color:var(--stxt);font-size:.82rem;transition:all .15s;border-left:3px solid transparent;user-select:none;}
+.nav-item:hover{background:rgba(255,255,255,.05);color:#fff;}
+.nav-item.active{background:rgba(201,169,110,.12);color:var(--acc);border-left-color:var(--acc);}
+.nav-item .ico{font-size:.95rem;width:18px;text-align:center;}
+.sb-user{margin-top:auto;padding:1rem 1.1rem;border-top:1px solid rgba(255,255,255,.07);}
+.sb-user-row{display:flex;align-items:center;gap:.65rem;margin-bottom:.6rem;}
+.sb-avatar{width:32px;height:32px;border-radius:50%;background:var(--acc);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;color:var(--p);}
+.sb-uname{font-size:.8rem;color:#fff;font-weight:500;}
+.sb-urole{font-size:.68rem;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.5px;}
+.sb-logout{width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.5);border-radius:4px;padding:.4rem;font-size:.75rem;cursor:pointer;transition:all .2s;font-family:'Inter',sans-serif;}
+.sb-logout:hover{background:rgba(220,38,38,.2);border-color:rgba(220,38,38,.4);color:#fca5a5;}
+
+/* ─── MAIN ─── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.topbar{background:#fff;padding:.85rem 1.5rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--bdr);flex-shrink:0;box-shadow:var(--shad);}
+.topbar-title{font-size:1.05rem;font-weight:700;color:var(--p);}
+.topbar-right{display:flex;align-items:center;gap:1rem;font-size:.82rem;color:var(--txt2);}
+.today-date{font-size:.78rem;color:var(--txt2);}
+.content{flex:1;overflow-y:auto;padding:1.4rem;}
+
+/* ─── COMPONENTS ─── */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:1rem;margin-bottom:1.4rem;}
+.stat{background:#fff;border-radius:var(--r);padding:1.1rem;box-shadow:var(--shad);display:flex;align-items:center;gap:.9rem;}
+.stat-ic{width:44px;height:44px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;}
+.stat-val{font-size:1.6rem;font-weight:700;line-height:1;}
+.stat-lbl{font-size:.72rem;color:var(--txt2);margin-top:.15rem;}
+.card{background:#fff;border-radius:var(--r);box-shadow:var(--shad);overflow:hidden;margin-bottom:1.2rem;}
+.card-header{padding:.9rem 1.2rem;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;}
+.card-title{font-size:.88rem;font-weight:700;color:var(--p);}
+.card-body{padding:0;}
+.card-pad{padding:1.2rem;}
+table{width:100%;border-collapse:collapse;font-size:.82rem;}
+th{background:#f8fafc;padding:.65rem 1rem;text-align:left;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--txt2);border-bottom:1px solid var(--bdr);white-space:nowrap;}
+td{padding:.65rem 1rem;border-bottom:1px solid #f1f5f9;vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:#fafbfd;}
+.badge{display:inline-flex;align-items:center;padding:.18rem .65rem;border-radius:20px;font-size:.7rem;font-weight:600;letter-spacing:.3px;white-space:nowrap;}
+.b-ok{background:#d1fae5;color:#065f46;}.b-err{background:#fee2e2;color:#991b1b;}.b-warn{background:#fef3c7;color:#92400e;}.b-info{background:#dbeafe;color:#1e40af;}.b-gray{background:#f1f5f9;color:#475569;}.b-purple{background:#ede9fe;color:#5b21b6;}
+.btn{display:inline-flex;align-items:center;gap:.35rem;padding:.42rem 1rem;border:none;border-radius:5px;font-size:.78rem;font-weight:600;cursor:pointer;transition:all .15s;font-family:'Inter',sans-serif;white-space:nowrap;}
+.btn-p{background:var(--p);color:#fff;}.btn-p:hover{background:var(--p2);}
+.btn-acc{background:var(--acc);color:var(--p);}.btn-acc:hover{background:#b8924f;}
+.btn-ok{background:var(--ok);color:#fff;}.btn-ok:hover{background:#047857;}
+.btn-err{background:var(--err);color:#fff;}.btn-err:hover{background:#b91c1c;}
+.btn-ghost{background:transparent;border:1px solid var(--bdr);color:var(--txt2);}.btn-ghost:hover{border-color:var(--p);color:var(--p);}
+.btn-info{background:var(--info);color:#fff;}
+.btn-sm{padding:.3rem .7rem;font-size:.72rem;}
+.filters{display:flex;flex-wrap:wrap;gap:.65rem;margin-bottom:1rem;align-items:flex-end;}
+.ff{display:flex;flex-direction:column;gap:.25rem;min-width:130px;}
+.ff label{font-size:.65rem;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.4px;}
+.ff input,.ff select{padding:.45rem .7rem;border:1.5px solid var(--bdr);border-radius:5px;font-size:.82rem;font-family:'Inter',sans-serif;outline:none;background:#fff;color:var(--txt);}
+.ff input:focus,.ff select:focus{border-color:var(--p);}
+.fg{display:flex;flex-direction:column;gap:.3rem;}
+.fg label{font-size:.7rem;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.4px;}
+.fg input,.fg select,.fg textarea{padding:.55rem .8rem;border:1.5px solid var(--bdr);border-radius:5px;font-size:.85rem;font-family:'Inter',sans-serif;outline:none;color:var(--txt);background:#fff;transition:border-color .2s;}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--p);}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;}
+.fgrid .fg.full{grid-column:1/-1;}
+.tabs{display:flex;border-bottom:2px solid var(--bdr);margin-bottom:1.2rem;gap:0;}
+.tab{padding:.6rem 1.1rem;cursor:pointer;font-size:.82rem;font-weight:500;color:var(--txt2);border-bottom:2px solid transparent;margin-bottom:-2px;transition:.15s;}
+.tab.active{color:var(--p);border-bottom-color:var(--p);font-weight:700;}
+.tab:hover{color:var(--p);}
+.occ-bar{height:8px;background:#e5e7eb;border-radius:4px;overflow:hidden;width:80px;}
+.occ-fill{height:100%;border-radius:4px;transition:width .3s;}
+.alert{padding:.75rem 1rem;border-radius:5px;font-size:.82rem;margin:.5rem 0;}
+.alert-err{background:#fef2f2;border:1px solid #fecaca;color:#991b1b;}
+.alert-ok{background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:5000;display:none;align-items:center;justify-content:center;padding:1rem;}
+.modal-overlay.show{display:flex;}
+.modal{background:#fff;border-radius:10px;padding:1.5rem;width:100%;max-width:580px;max-height:92vh;overflow-y:auto;position:relative;}
+.modal h3{font-size:1rem;font-weight:700;color:var(--p);margin-bottom:1.2rem;}
+.mclose-btn{position:absolute;top:1rem;right:1rem;background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--txt2);transition:color .2s;}
+.mclose-btn:hover{color:var(--err);}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:sp .7s linear infinite;vertical-align:middle;}
+@keyframes sp{to{transform:rotate(360deg);}}
+.pg{display:flex;align-items:center;gap:.4rem;padding:.8rem 1rem;justify-content:flex-end;border-top:1px solid var(--bdr);}
+.pg-btn{padding:.3rem .65rem;border:1px solid var(--bdr);border-radius:4px;background:#fff;cursor:pointer;font-size:.78rem;}
+.pg-btn.active{background:var(--p);color:#fff;border-color:var(--p);}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem;}
+.empty-state{text-align:center;padding:3rem;color:var(--txt2);font-size:.88rem;}
+@media(max-width:900px){.sidebar{width:200px;} .two-col{grid-template-columns:1fr;}}
+@media(max-width:700px){.sidebar{position:fixed;left:-235px;top:0;bottom:0;z-index:100;transition:left .3s;} .sidebar.open{left:0;} .main{margin-left:0;}}
+
+/* ═══════════════════════════════════════════════════════════════
+   OMS — Order Management System Styles
+═══════════════════════════════════════════════════════════════ */
+.b-orange{background:#fff7ed;color:#9a3412;}
+.b-teal{background:#f0fdfa;color:#115e59;}
+.b-indigo{background:#eef2ff;color:#3730a3;}
+.cat-pill{display:inline-flex;align-items:center;gap:.3rem;padding:.18rem .6rem;border-radius:20px;font-size:.68rem;font-weight:700;letter-spacing:.3px;}
+.cat-rs{background:#fff0f0;color:#b91c1c;}
+.cat-rest{background:#fff7ed;color:#c2410c;}
+.cat-lau{background:#f0f9ff;color:#0369a1;}
+.cat-mb{background:#fdf4ff;color:#7e22ce;}
+.cat-svc{background:#f0fdf4;color:#15803d;}
+.cat-add{background:#fffbeb;color:#b45309;}
+.pri-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:.3rem;}
+.pri-Normal{background:#94a3b8;}.pri-High{background:#f59e0b;}.pri-Urgent{background:#ef4444;}
+.oms-board{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:1rem;margin-bottom:1.2rem;}
+.oms-col{background:#f8fafc;border-radius:8px;border:1px solid var(--bdr);padding:.7rem;}
+.oms-col-hdr{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--txt2);margin-bottom:.7rem;display:flex;align-items:center;justify-content:space-between;}
+.oms-col-cnt{font-weight:800;background:var(--p);color:#fff;padding:.1rem .45rem;border-radius:20px;font-size:.68rem;}
+.order-card{background:#fff;border-radius:6px;border:1px solid var(--bdr);padding:.7rem;margin-bottom:.5rem;cursor:pointer;transition:all .2s;border-left:3px solid transparent;}
+.order-card:hover{box-shadow:0 2px 12px rgba(0,0,0,.1);transform:translateY(-1px);}
+.order-card.pri-Urgent{border-left-color:#ef4444;}.order-card.pri-High{border-left-color:#f59e0b;}.order-card.pri-Normal{border-left-color:#94a3b8;}
+.oc-num{font-size:.7rem;font-weight:700;color:var(--p);letter-spacing:.3px;}
+.oc-guest{font-size:.8rem;font-weight:600;margin:.15rem 0;}
+.oc-room{font-size:.72rem;color:var(--txt2);}
+.oc-total{font-size:.82rem;font-weight:700;color:var(--p);margin-top:.35rem;}
+.oc-time{font-size:.68rem;color:var(--txt2);margin-top:.2rem;}
+.oms-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:.8rem;margin-bottom:1.4rem;}
+.oms-stat{background:#fff;border-radius:var(--r);padding:.9rem 1rem;box-shadow:var(--shad);text-align:center;}
+.oms-stat-val{font-size:1.6rem;font-weight:800;line-height:1;margin-bottom:.2rem;}
+.oms-stat-lbl{font-size:.66rem;color:var(--txt2);text-transform:uppercase;letter-spacing:.4px;}
+.cat-picker{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:.5rem;max-height:260px;overflow-y:auto;border:1px solid var(--bdr);border-radius:6px;padding:.5rem;}
+.cp-item{padding:.55rem .7rem;border:1.5px solid var(--bdr);border-radius:5px;cursor:pointer;transition:all .15s;display:flex;justify-content:space-between;align-items:center;}
+.cp-item:hover{border-color:var(--p);background:#f8fafc;}
+.cp-name{font-size:.8rem;font-weight:600;}
+.cp-price{font-size:.78rem;color:var(--acc);font-weight:700;}
+.stepper{display:flex;align-items:center;gap:.3rem;}
+.stepper button{width:26px;height:26px;border:1px solid var(--bdr);background:#fff;border-radius:4px;cursor:pointer;font-size:.9rem;}
+.stepper input{width:52px;text-align:center;border:1px solid var(--bdr);border-radius:4px;padding:.25rem;font-size:.82rem;}
+.timeline{padding:.5rem 0;}
+.tl-item{display:flex;gap:.7rem;padding:.4rem 0;position:relative;}
+.tl-dot{width:10px;height:10px;border-radius:50%;background:var(--p);flex-shrink:0;margin-top:.35rem;}
+.tl-line{position:absolute;left:4px;top:18px;bottom:-4px;width:2px;background:var(--bdr);}
+.tl-item:last-child .tl-line{display:none;}
+.tl-status{font-size:.78rem;font-weight:700;color:var(--p);}
+.tl-note{font-size:.75rem;color:var(--txt2);}
+.tl-time{font-size:.7rem;color:var(--txt2);margin-top:.1rem;}
+.folio-charge{color:var(--err);font-weight:600;}
+.folio-credit{color:var(--ok);font-weight:600;}
+.folio-voided{opacity:.4;text-decoration:line-through;}
+.catalog-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:1rem;}
+.cat-card{background:#fff;border-radius:8px;border:1px solid var(--bdr);padding:1rem;box-shadow:var(--shad);}
+.cat-card-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem;}
+.cat-item-name{font-weight:700;font-size:.88rem;}
+.cat-item-price{font-weight:700;color:var(--p);}
+.cat-item-desc{font-size:.78rem;color:var(--txt2);margin-bottom:.5rem;}
+.cat-item-meta{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;}
+.odet-meta{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.6rem;margin-bottom:1rem;}
+.odet-kv{display:flex;flex-direction:column;gap:.1rem;}
+.odet-k{font-size:.65rem;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;font-weight:600;}
+.odet-v{font-size:.85rem;font-weight:600;color:var(--txt);}
+</style>
+</head>
+<body>
+
+<!-- ─── LOGIN SCREEN ─── -->
+<div id="loginWrap">
+  <div class="lcard">
+    <div class="brand">🏨 The Sapphire Suits</div>
+    <div class="brand-sub">Hotel Management Portal</div>
+    <div id="loginErr"></div>
+    <div class="lf"><label>Username</label><input id="lusr" placeholder="Enter username" value="" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <div class="lf"><label>Password</label><input type="password" id="lpwd" placeholder="Enter password" value="" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <button class="lbtn" onclick="doLogin()">Sign In to Admin Panel</button>
+    <div class="ldemo" style="margin-top:.8rem;">
+      <!-- <strong>Default credentials:</strong> admin / Admin@2024<br> -->
+      <span style="color:#9ca3af;font-size:.72rem;">API is served from the same server</span>
+    </div>
+    <div style="margin-top:.8rem;text-align:center;">
+      <button onclick="checkAPIStatus()" style="background:none;border:1px solid #e5e7eb;padding:.35rem 1rem;border-radius:4px;font-size:.75rem;cursor:pointer;color:#6b7280;">🔍 Test API Connection</button>
+    </div>
+    <div id="apiStatusMsg"></div>
+  </div>
+</div>
+
+<!-- ─── APP ─── -->
+<div id="appWrap">
+<div class="layout">
+
+<!-- SIDEBAR -->
+<div class="sidebar" id="sidebar">
+  <div class="sb-brand">
+    <div class="hn" id="sbHotelName">Loading…</div>
+    <div class="hb" id="sbHotelSub">Channel Manager</div>
+  </div>
+
+  <div class="sb-sect">Main</div>
+  <div class="nav-item active" data-page="dashboard" data-roles="SuperAdmin,HotelAdmin,FrontDesk,Reservations,Finance,ReportViewer"><span class="ico">📊</span>Dashboard</div>
+  <div class="nav-item" data-page="bookings" data-roles="SuperAdmin,HotelAdmin,FrontDesk,Reservations,Finance,ReportViewer"><span class="ico">📋</span>Bookings</div>
+  <div class="nav-item" data-page="walkin" data-roles="SuperAdmin,HotelAdmin,FrontDesk,Reservations"><span class="ico">🚶</span>New Booking</div>
+
+  <div class="sb-sect" data-roles-sect="SuperAdmin,HotelAdmin,FrontDesk,Reservations">Inventory</div>
+  <div class="nav-item" data-page="rooms" data-roles="SuperAdmin,HotelAdmin,FrontDesk"><span class="ico">🛏️</span>Rooms</div>
+  <div class="nav-item" data-page="rates" data-roles="SuperAdmin,HotelAdmin,Reservations"><span class="ico">💰</span>Rates & Pricing</div>
+  <div class="nav-item" data-page="availability" data-roles="SuperAdmin,HotelAdmin,FrontDesk,Reservations"><span class="ico">📅</span>Availability</div>
+
+  <div class="sb-sect" data-roles-sect="SuperAdmin,HotelAdmin">Channels</div>
+  <div class="nav-item" data-page="channels" data-roles="SuperAdmin,HotelAdmin"><span class="ico">🔗</span>Channel Partners</div>
+  <div class="nav-item" data-page="remittances" data-roles="SuperAdmin,HotelAdmin,Finance"><span class="ico">💳</span>Remittances</div>
+
+  <div class="sb-sect" data-roles-sect="SuperAdmin,HotelAdmin,FrontDesk,Reservations,Finance,ReportViewer">Reports</div>
+  <div class="nav-item" data-page="reports" data-roles="SuperAdmin,HotelAdmin,FrontDesk,Reservations,Finance,ReportViewer"><span class="ico">📈</span>Reports</div>
+  <div class="nav-item" data-page="payments" data-roles="SuperAdmin,HotelAdmin,FrontDesk,Finance,ReportViewer"><span class="ico">💵</span>Payments</div>
+  <div class="nav-item" data-page="customers" data-roles="SuperAdmin,HotelAdmin,FrontDesk,Reservations"><span class="ico">👥</span>Customers</div>
+
+  <div class="sb-sect" data-roles-sect="SuperAdmin,HotelAdmin">Admin</div>
+  <div class="nav-item" data-page="users" data-roles="SuperAdmin,HotelAdmin"><span class="ico">👤</span>Users</div>
+  <div class="nav-item" data-page="settings" data-roles="SuperAdmin"><span class="ico">⚙️</span>Settings</div>
+
+  <div class="sb-sect" data-roles-sect="SuperAdmin,HotelAdmin,FrontDesk,Reservations">Order Management</div>
+  <div class="nav-item" data-page="orders" data-roles="SuperAdmin,HotelAdmin,FrontDesk,Reservations"><span class="ico">🧾</span>Order Management</div>
+  <div class="nav-item" data-page="folio" data-roles="SuperAdmin,HotelAdmin,FrontDesk,Reservations,Finance"><span class="ico">📒</span>Guest Folio</div>
+  <div class="nav-item" data-page="catalog" data-roles="SuperAdmin,HotelAdmin"><span class="ico">🗂️</span>Order Catalog</div>
+
+  <div class="sb-user">
+    <div class="sb-user-row">
+      <div class="sb-avatar" id="sbAv">A</div>
+      <div><div class="sb-uname" id="sbName">Admin</div><div class="sb-urole" id="sbRole">SuperAdmin</div></div>
+    </div>
+    <button class="sb-logout" onclick="logout()">🚪 Sign Out</button>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-title" id="pageTitle">Dashboard</div>
+    <div class="topbar-right">
+      <span class="today-date" id="todayDate"></span>
+      <a href="index.html" target="_blank" class="btn btn-ghost btn-sm">🌐 Hotel Site</a>
+    </div>
+  </div>
+  <div class="content" id="pageContent">Loading...</div>
+</div>
+
+</div>
+</div>
+
+<!-- GLOBAL MODAL -->
+<div class="modal-overlay" id="gModal">
+  <div class="modal" id="gModalBody">
+    <button class="mclose-btn" onclick="closeGModal()">✕</button>
+    <div id="gModalContent"></div>
+  </div>
+</div>
+
+<script>
+const API='/api'; // Relative URL — works on any domain/port
+let token='',curUser=null,curPage='dashboard';
+
+// ─── AUTH ───────────────────────────────────────────────────
+async function doLogin(){
+  const u=document.getElementById('lusr').value.trim();
+  const p=document.getElementById('lpwd').value;
+  const errEl=document.getElementById('loginErr');
+  errEl.innerHTML='';
+
+  if(!u||!p){
+    errEl.innerHTML=`<div class="alert alert-err">Please enter username and password.</div>`;
+    return;
+  }
+
+  // Show loading state
+  const btn=document.querySelector('.lbtn');
+  btn.textContent='Signing in...'; btn.disabled=true;
+
+  try{
+    const r=await fetch(`${API}/auth/login`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      // No credentials:'include' — we're using AllowAnyOrigin (no-cors-credentials)
+      body:JSON.stringify({username:u,password:p})
+    });
+
+    let d;
+    try{ d=await r.json(); }
+    catch(jsonErr){
+      errEl.innerHTML=`<div class="alert alert-err">Server returned invalid response (HTTP ${r.status}). Check the API is running correctly.</div>`;
+      return;
+    }
+
+    if(d.success){
+      token=d.data.token; curUser=d.data;
+      document.getElementById('loginWrap').style.display='none';
+      document.getElementById('appWrap').style.display='block';
+      document.getElementById('sbAv').textContent=(d.data.fullName||d.data.username)[0].toUpperCase();
+      document.getElementById('sbName').textContent=d.data.fullName||d.data.username;
+      document.getElementById('sbRole').textContent=d.data.role;
+      document.getElementById('todayDate').textContent=new Date().toLocaleDateString('en-IN',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+      setupNav(); loadHotelBranding(); goPage('dashboard');
+    } else {
+      errEl.innerHTML=`<div class="alert alert-err">❌ ${d.message||'Invalid username or password.'}</div>`;
+    }
+  }catch(e){
+    // Network error — API not reachable
+    errEl.innerHTML=`<div class="alert alert-err">
+      ⚠️ Cannot connect to the API.<br>
+      <strong>Fix:</strong> Ensure the server is running: <code>dotnet run --urls=http://localhost:5000</code><br>
+      <small style="opacity:.7">Error: ${e.message}</small>
+    </div>`;
+  } finally {
+    btn.textContent='Sign In to Admin Panel'; btn.disabled=false;
+  }
+}
+
+function logout(){
+  token=''; curUser=null;
+  document.getElementById('appWrap').style.display='none';
+  document.getElementById('loginWrap').style.display='flex';
+  document.getElementById('lpwd').value='';
+}
+
+// ── HOTEL BRANDING — pulls from Hotels table AND SystemSettings table ──
+function parseSettings(arr){
+  const map={};
+  (arr||[]).forEach(s=>{ if(s.settingKey) map[s.settingKey]=s.settingValue; });
+  return map;
+}
+
+async function loadHotelBranding(){
+  try{
+    const [hotelRes, settingsRes] = await Promise.all([
+      api('GET','/hotels/1'),
+      api('GET','/settings')
+    ]);
+    const h  = hotelRes?.success  ? hotelRes.data  : {};
+    const ss = parseSettings(settingsRes?.success ? settingsRes.data : []);
+
+    const name  = h.hotelName || ss['hotel.name'] || 'Hotel';
+    const city  = h.city      || ss['hotel.city']  || '';
+    const state = h.state     || ss['hotel.state'] || '';
+    const loc   = [city, state].filter(Boolean).join(', ');
+
+    document.getElementById('adminPageTitle').textContent = `${name} — Admin Panel`;
+    document.getElementById('sbHotelName').textContent    = name;
+    document.getElementById('sbHotelSub').textContent     = loc ? `${loc} · Channel Manager` : 'Channel Manager';
+  }catch(e){}
+}
+
+// Central API fetch helper — no credentials (matches AllowAnyOrigin CORS policy)
+async function api(method,path,body){
+  try{
+    const opts={
+      method,
+      headers:{
+        'Content-Type':'application/json',
+        'Authorization':`Bearer ${token}`
+      }
+    };
+    if(body!==undefined) opts.body=JSON.stringify(body);
+    const r=await fetch(`${API}${path}`,opts);
+    if(r.status===401){ logout(); return null; }
+    if(!r.ok && r.status===403) return {success:false,message:'Access denied — insufficient permissions'};
+    const text=await r.text();
+    if(!text) return {success:true,message:'OK'};
+    try{ return JSON.parse(text); }
+    catch{ return {success:false,message:'Invalid server response'}; }
+  }catch(e){
+    console.error('API error:',method,path,e.message);
+    return null;
+  }
+}
+
+// Test API connectivity
+async function checkAPIStatus(){
+  const el=document.getElementById('apiStatusMsg');
+  el.innerHTML=`<div style="text-align:center;font-size:.78rem;color:#6b7280;margin-top:.5rem;"><span class="spin"></span> Checking...</div>`;
+  try{
+    const r=await fetch('/health',{method:'GET'});
+    const d=await r.json();
+    if(d.status==='healthy'){
+      el.innerHTML=`<div style="background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;padding:.5rem .8rem;border-radius:4px;font-size:.78rem;margin-top:.5rem;">✅ API is running — ${d.service}</div>`;
+    } else {
+      el.innerHTML=`<div style="background:#fef3c7;border:1px solid #fde68a;color:#92400e;padding:.5rem .8rem;border-radius:4px;font-size:.78rem;margin-top:.5rem;">⚠️ API responded but status: ${d.status}</div>`;
+    }
+  }catch(e){
+    el.innerHTML=`<div style="background:#fef2f2;border:1px solid #fecaca;color:#991b1b;padding:.5rem .8rem;border-radius:4px;font-size:.78rem;margin-top:.5rem;">
+      ❌ API not reachable<br>
+      Run: <code>dotnet run --urls=http://localhost:5000</code>
+    </div>`;
+  }
+}
+
+// ─── NAV ────────────────────────────────────────────────────
+function setupNav(){
+  const role = curUser?.role || '';
+
+  document.querySelectorAll('.nav-item[data-page]').forEach(el => {
+    const allowed = (el.dataset.roles || '').split(',').map(r => r.trim());
+    const visible  = allowed.includes(role);
+    el.style.display = visible ? '' : 'none';
+
+    // Clone node to wipe any previously attached listeners (safe re-login guard)
+    const fresh = el.cloneNode(true);
+    el.parentNode.replaceChild(fresh, el);
+    if (visible) {
+      fresh.addEventListener('click', () => goPage(fresh.dataset.page));
+    }
+  });
+
+  // Hide section labels whose roles don't include the current user's role
+  document.querySelectorAll('.sb-sect[data-roles-sect]').forEach(sect => {
+    const allowedRoles = sect.dataset.rolesSect.split(',').map(r => r.trim());
+    sect.style.display = allowedRoles.includes(role) ? '' : 'none';
+  });
+}
+
+function goPage(page){
+  // Role guard: check the nav item's data-roles before loading the page
+  const navEl = document.querySelector(`.nav-item[data-page="${page}"]`);
+  if (navEl) {
+    const allowed = (navEl.dataset.roles || '').split(',').map(r => r.trim());
+    if (!allowed.includes(curUser?.role || '')) {
+      document.getElementById('pageContent').innerHTML =
+        `<div class="alert alert-err" style="margin:2rem;">⛔ You do not have permission to access this section.</div>`;
+      return;
+    }
+  }
+  curPage=page;
+  document.querySelectorAll('.nav-item[data-page]').forEach(el=>el.classList.toggle('active',el.dataset.page===page));
+  const titles={dashboard:'Dashboard',bookings:'Bookings',walkin:'New Booking',rooms:'Room Management',rates:'Rates & Pricing',availability:'Availability',channels:'Channel Partners',remittances:'Partner Remittances',reports:'Reports',payments:'Payments',customers:'Customers',users:'User Management',settings:'Settings',orders:'Order Management',folio:'Guest Folio',catalog:'Order Catalog'};
+  document.getElementById('pageTitle').textContent=titles[page]||page;
+  document.getElementById('pageContent').innerHTML='<div style="text-align:center;padding:3rem;color:#6b7280;"><span class="spin"></span> Loading...</div>';
+  const pages={dashboard:pgDashboard,bookings:pgBookings,walkin:pgWalkin,rooms:pgRooms,rates:pgRates,availability:pgAvailability,channels:pgChannels,remittances:pgRemittances,reports:pgReports,payments:pgPayments,customers:pgCustomers,users:pgUsers,settings:pgSettings,orders:pgOrders,folio:pgFolio,catalog:pgCatalog};
+  (pages[page]||function(){})();
+}
+
+// ─── HELPERS ────────────────────────────────────────────────
+function fmt(d){if(!d)return'—';return new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});}
+function fmtMoney(n){return'₹'+(Math.round(n||0)).toLocaleString('en-IN');}
+function fmtK(n){n=Math.round(n||0);return n>=100000?'₹'+(n/100000).toFixed(1)+'L':n>=1000?'₹'+(n/1000).toFixed(0)+'K':fmtMoney(n);}
+function todayStr(offset=0){const d=new Date();d.setDate(d.getDate()+offset);return d.toISOString().split('T')[0];}
+function statusBadge(s){const m={Confirmed:'b-ok',CheckedIn:'b-info',CheckedOut:'b-gray',Cancelled:'b-err',Pending:'b-warn',NoShow:'b-err'};return`<span class="badge ${m[s]||'b-gray'}">${s}</span>`;}
+function srcBadge(s){const m={HotelDesk:'b-purple',Website:'b-info',ChannelPartner:'b-warn',Phone:'b-gray',WalkIn:'b-ok'};return`<span class="badge ${m[s]||'b-gray'}">${s}</span>`;}
+function payBadge(m){return`<span class="badge ${m==='OnlinePaid'||m==='OnlineCollect'?'b-ok':'b-warn'}">${m==='PayAtHotel'?'At Hotel':m==='OnlinePaid'?'Online Paid':m}</span>`;}
+function showGModal(html,w=580){
+  document.getElementById('gModalBody').style.maxWidth=w+'px';
+  document.getElementById('gModalContent').innerHTML=html;
+  document.getElementById('gModal').classList.add('show');
+}
+function closeGModal(){document.getElementById('gModal').classList.remove('show');}
+document.getElementById('gModal').addEventListener('click',e=>{if(e.target===document.getElementById('gModal'))closeGModal();});
+function showAlert(id,msg,type){const el=document.getElementById(id);if(el)el.innerHTML=`<div class="alert alert-${type}">${msg}</div>`;}
+function twoColGrid(a,b){return`<div class="two-col">${a}${b}</div>`;}
+
+// ─── DASHBOARD ──────────────────────────────────────────────
+async function pgDashboard(){
+  const d=await api('GET','/reports/dashboard/1');
+  if(!d?.success){document.getElementById('pageContent').innerHTML=`<div class="alert alert-err">Failed to load dashboard. Check API connection.</div>`;return;}
+  const s=d.data;
+  document.getElementById('pageContent').innerHTML=`
+  <div class="stat-grid">
+    <div class="stat"><div class="stat-ic" style="background:#dbeafe">📥</div><div><div class="stat-val" style="color:var(--info)">${s.todayArrivals}</div><div class="stat-lbl">Today Arrivals</div></div></div>
+    <div class="stat"><div class="stat-ic" style="background:#fef3c7">📤</div><div><div class="stat-val" style="color:var(--warn)">${s.todayDepartures}</div><div class="stat-lbl">Today Departures</div></div></div>
+    <div class="stat"><div class="stat-ic" style="background:#d1fae5">🛏️</div><div><div class="stat-val" style="color:var(--ok)">${s.currentlyOccupied}</div><div class="stat-lbl">Occupied Rooms</div></div></div>
+    <div class="stat"><div class="stat-ic" style="background:#f0fdf4">🔑</div><div><div class="stat-val" style="color:#374151">${s.totalAvailableRooms}</div><div class="stat-lbl">Available Today</div></div></div>
+    <div class="stat"><div class="stat-ic" style="background:#d1fae5">💰</div><div><div class="stat-val" style="color:var(--ok);font-size:1.2rem">${fmtK(s.todayRevenue)}</div><div class="stat-lbl">Today Revenue</div></div></div>
+    <div class="stat"><div class="stat-ic" style="background:#fef3c7">📆</div><div><div class="stat-val" style="color:var(--warn);font-size:1.2rem">${fmtK(s.monthRevenue)}</div><div class="stat-lbl">Month Revenue</div></div></div>
+    <div class="stat"><div class="stat-ic" style="background:#ede9fe">📊</div><div><div class="stat-val" style="color:#5b21b6">${s.occupancyRate}%</div><div class="stat-lbl">Occupancy Rate</div></div></div>
+    <div class="stat"><div class="stat-ic" style="background:#fee2e2">⚠️</div><div><div class="stat-val" style="color:var(--err)">${s.pendingCheckouts}</div><div class="stat-lbl">Pending Checkouts</div></div></div>
+  </div>
+  ${twoColGrid(`
+  <div class="card">
+    <div class="card-header"><span class="card-title">📊 Revenue by Channel</span></div>
+    <div class="card-body"><table>
+      <thead><tr><th>Channel</th><th>Bookings</th><th>Gross</th><th>Commission</th><th>Net to Hotel</th></tr></thead>
+      <tbody>${(s.channelSummary||[]).map(c=>`<tr>
+        <td><strong>${c.channelName}</strong><br><small style="color:var(--txt2)">${c.paymentMode}</small></td>
+        <td>${c.confirmedBookings}</td>
+        <td>${fmtMoney(c.grossRevenue)}</td>
+        <td style="color:var(--err)">${fmtMoney(c.totalCommission)}</td>
+        <td style="color:var(--ok)"><strong>${fmtMoney(c.netRevenue)}</strong></td>
+      </tr>`).join('')}
+      </tbody>
+    </table></div>
+  </div>`,`
+  <div class="card">
+    <div class="card-header"><span class="card-title">🛏️ Room Occupancy Today</span></div>
+    <div class="card-body"><table>
+      <thead><tr><th>Type</th><th>Total</th><th>Booked</th><th>Avail</th><th>%</th></tr></thead>
+      <tbody>${(s.roomOccupancy||[]).map(r=>`<tr>
+        <td>${r.typeName}</td><td>${r.totalRooms}</td><td style="color:var(--err)">${r.bookedRooms}</td>
+        <td style="color:var(--ok)">${r.availableRooms}</td>
+        <td><div style="display:flex;align-items:center;gap:.4rem;"><div class="occ-bar"><div class="occ-fill" style="width:${r.occupancyPct}%;background:${r.occupancyPct>80?'var(--err)':r.occupancyPct>50?'var(--warn)':'var(--ok)'};"></div></div><span style="font-size:.75rem;font-weight:700">${r.occupancyPct}%</span></div></td>
+      </tr>`).join('')}
+      </tbody>
+    </table></div>
+  </div>`)}
+  <div class="card">
+    <div class="card-header"><span class="card-title">🕐 Recent Bookings</span><button class="btn btn-p btn-sm" onclick="goPage('bookings')">View All</button></div>
+    <div class="card-body"><table>
+      <thead><tr><th>Reference</th><th>Guest</th><th>Room</th><th>Check-In</th><th>Channel</th><th>Amount</th><th>Status</th></tr></thead>
+      <tbody>${(s.recentBookings||[]).map(b=>`<tr>
+        <td><code style="font-size:.8rem;color:var(--p)">${b.bookingReference}</code></td>
+        <td>${b.guestName}</td><td>${b.roomTypeName}</td><td>${fmt(b.checkInDate)}</td>
+        <td><span class="badge b-gray">${b.channelName}</span></td>
+        <td><strong>${fmtMoney(b.grandTotal)}</strong></td>
+        <td>${statusBadge(b.bookingStatus)}</td>
+      </tr>`).join('')}
+      </tbody>
+    </table></div>
+  </div>`;
+}
+
+// ─── BOOKINGS ────────────────────────────────────────────────
+async function pgBookings(page=1){
+  const pc=document.getElementById('pageContent');
+  pc.innerHTML=`
+  <div class="filters">
+    <div class="ff"><label>From</label><input type="date" id="bFrom" value="${todayStr(-90)}"></div>
+    <div class="ff"><label>To</label><input type="date" id="bTo" value="${todayStr(90)}"></div>
+    <div class="ff"><label>Status</label>
+      <select id="bStat"><option value="">All Status</option><option>Confirmed</option><option>CheckedIn</option><option>CheckedOut</option><option>Cancelled</option><option>NoShow</option></select>
+    </div>
+    <div class="ff"><label>Source</label>
+      <select id="bSrc"><option value="">All Sources</option><option value="HotelDesk">Hotel Desk</option><option value="Website">Website</option><option value="ChannelPartner">Channel Partner</option><option value="WalkIn">Walk-In</option></select>
+    </div>
+    <button class="btn btn-p" onclick="loadBookings(1)">🔍 Search</button>
+    <button class="btn btn-ghost" onclick="goPage('walkin')">+ New Booking</button>
+  </div>
+  <div id="btable"><div style="text-align:center;padding:2rem;"><span class="spin"></span></div></div>`;
+  loadBookings(page);
+}
+
+async function loadBookings(page=1){
+  const from=document.getElementById('bFrom')?.value||todayStr(-90);
+  const to=document.getElementById('bTo')?.value||todayStr(90);
+  const stat=document.getElementById('bStat')?.value||'';
+  const src=document.getElementById('bSrc')?.value||'';
+  const d=await api('GET',`/bookings?fromDate=${from}&toDate=${to}&status=${stat}&bookingSource=${src}&page=${page}&size=30`);
+  const items=Array.isArray(d?.data)?d.data:[];
+  const total=d?.totalCount||0;
+  const pages=Math.ceil(total/30);
+  document.getElementById('btable').innerHTML=`
+  <div class="card">
+    <div class="card-header"><span class="card-title">Bookings (${total} total)</span></div>
+    <div style="overflow-x:auto"><table>
+      <thead><tr><th>Reference</th><th>Guest</th><th>Room</th><th>Check-In</th><th>Check-Out</th><th>Nights</th><th>Channel</th><th>Total</th><th>Commission</th><th>Payment</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody>${items.map(b=>`<tr>
+        <td><code style="color:var(--p);font-size:.8rem;font-weight:600">${b.bookingReference}</code><br><small style="color:var(--txt2)">${srcBadge(b.bookingSource)}</small></td>
+        <td><strong>${b.guestName||'—'}</strong><br><small style="color:var(--txt2)">${b.guestEmail||''}</small></td>
+        <td>${b.roomTypeName||'—'}${b.roomNumber?`<br><small style="color:var(--txt2)">Rm ${b.roomNumber}</small>`:''}</td>
+        <td>${fmt(b.checkInDate)}</td><td>${fmt(b.checkOutDate)}</td>
+        <td style="text-align:center">${b.totalNights}</td>
+        <td><span class="badge b-gray">${b.channelName||'Direct'}</span></td>
+        <td><strong>${fmtMoney(b.grandTotal)}</strong></td>
+        <td style="color:var(--err)">${fmtMoney(b.commissionAmount)}</td>
+        <td>${payBadge(b.paymentMode)}</td>
+        <td>${statusBadge(b.bookingStatus)}</td>
+        <td><div style="display:flex;gap:.3rem;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" onclick="viewBooking(${b.bookingId})">👁</button>
+          ${b.bookingStatus==='Confirmed'?`<button class="btn btn-ok btn-sm" onclick="doCheckin(${b.bookingId})">Check-In</button>`:''}
+          ${b.bookingStatus==='CheckedIn'?`<button class="btn btn-info btn-sm" onclick="doCheckout(${b.bookingId})">Check-Out</button>`:''}
+          ${['Confirmed','Pending','CheckedIn'].includes(b.bookingStatus)?`<button class="btn btn-err btn-sm" onclick="doCancel(${b.bookingId},'${b.bookingReference}')">Cancel</button>`:''}
+        </div></td>
+      </tr>`).join('')}
+      ${items.length===0?`<tr><td colspan="12" class="empty-state">No bookings found for the selected filters.</td></tr>`:''}
+      </tbody>
+    </table></div>
+    
+  </div>`;
+}
+
+async function viewBooking(id){
+  const d=await api('GET',`/bookings/${id}`);
+  const b=d?.data;
+  if(!b){showGModal('<p>Booking not found.</p>');return;}
+  showGModal(`
+  <h3>Booking Details — ${b.bookingReference}</h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;font-size:.83rem;margin-bottom:1rem;">
+    <div><strong>Status</strong><br>${statusBadge(b.bookingStatus)}</div>
+    <div><strong>Source</strong><br>${srcBadge(b.bookingSource)}</div>
+    <div><strong>Guest</strong><br>${b.guestName} (${b.vipStatus||'Regular'})</div>
+    <div><strong>Email / Phone</strong><br>${b.guestEmail||'—'}<br>${b.guestPhone||'—'}</div>
+    <div><strong>Check-In</strong><br>${fmt(b.checkInDate)}</div>
+    <div><strong>Check-Out</strong><br>${fmt(b.checkOutDate)}</div>
+    <div><strong>Room Type</strong><br>${b.roomTypeName}${b.roomNumber?` (Rm ${b.roomNumber})`:''}</div>
+    <div><strong>Guests</strong><br>${b.adultsCount} Adult(s), ${b.childrenCount} Child(ren)</div>
+    <div><strong>Channel</strong><br>${b.channelName||'Direct'}</div>
+    <div><strong>Payment</strong><br>${payBadge(b.paymentMode)}</div>
+    <div><strong>Grand Total</strong><br><strong style="color:var(--ok)">${fmtMoney(b.grandTotal)}</strong></div>
+    <div><strong>Commission</strong><br><span style="color:var(--err)">${fmtMoney(b.commissionAmount)}</span></div>
+    <div><strong>Amount Paid</strong><br>${fmtMoney(b.amountPaid)}</div>
+    <div><strong>Balance Due</strong><br><strong style="color:${b.balanceDue>0?'var(--err)':'var(--ok)'}">${fmtMoney(b.balanceDue)}</strong></div>
+    ${b.specialRequests?`<div class="full" style="grid-column:1/-1"><strong>Special Requests</strong><br>${b.specialRequests}</div>`:''}
+    ${b.cancellationReason?`<div style="grid-column:1/-1"><strong>Cancellation Reason</strong><br>${b.cancellationReason}<br>Charge: ${fmtMoney(b.cancellationCharge)}</div>`:''}
+  </div>
+  ${b.bookingStatus==='Confirmed'?`<div style="display:flex;gap:.5rem;margin-top:.5rem;">
+    <button class="btn btn-ok" onclick="doCheckin(${b.bookingId});closeGModal()">✓ Check In</button>
+    <button class="btn btn-err" onclick="doCancel(${b.bookingId},'${b.bookingReference}');closeGModal()">✕ Cancel</button>
+    <button class="btn btn-p" onclick="showPaymentForm(${b.bookingId})">💵 Record Payment</button>
+  </div>`:''}
+  ${b.bookingStatus==='CheckedIn'?`<div style="display:flex;gap:.5rem;margin-top:.5rem;">
+    <button class="btn btn-info" onclick="doCheckout(${b.bookingId});closeGModal()">Check Out</button>
+    <button class="btn btn-p" onclick="showPaymentForm(${b.bookingId})">💵 Record Payment</button>
+  </div>`:''}`,640);
+}
+
+async function doCheckin(id){
+  const roomId=prompt('Assign Room Number (optional — enter Room ID or leave blank):');
+  const d=await api('POST',`/bookings/${id}/checkin${roomId?`?roomId=${roomId}`:''}`);
+  if(d?.success){alert('✅ Guest checked in successfully!');loadBookings();}
+  else alert(d?.message||'Check-in failed');
+}
+
+async function doCheckout(id){
+  if(!confirm('Complete check-out for this guest?')) return;
+  const d=await api('POST',`/bookings/${id}/checkout`);
+  if(d?.success){alert('✅ Guest checked out successfully!');loadBookings();}
+  else alert(d?.message||'Check-out failed');
+}
+
+async function doCancel(id,ref){
+  if(!confirm(`Cancel booking ${ref}?\nCancellation charges may apply based on hotel policy.`)) return;
+  const reason=prompt('Reason for cancellation:');
+  if(reason===null) return;
+  const d=await api('POST',`/bookings/${id}/cancel`,{bookingId:id,reason:reason||'Admin cancelled'});
+  if(d?.success){alert(`✅ Cancelled.\nCharge: ${fmtMoney(d.data?.cancellationCharge||0)}`);loadBookings();}
+  else alert(d?.message||'Cancellation failed');
+}
+
+function showPaymentForm(bookingId){
+  showGModal(`
+  <h3>💵 Record Payment</h3>
+  <div class="fgrid">
+    <div class="fg"><label>Amount (₹) *</label><input type="number" id="pmtAmt" placeholder="0.00"></div>
+    <div class="fg"><label>Payment Type</label>
+      <select id="pmtType"><option value="Full">Full Payment</option><option value="Partial">Partial</option><option value="Advance">Advance</option></select>
+    </div>
+    <div class="fg"><label>Payment Method *</label>
+      <select id="pmtMethod"><option value="Cash">Cash</option><option value="CreditCard">Credit Card</option><option value="DebitCard">Debit Card</option><option value="UPI">UPI</option><option value="BankTransfer">Bank Transfer</option><option value="Cheque">Cheque</option></select>
+    </div>
+    <div class="fg"><label>Transaction Reference</label><input id="pmtRef" placeholder="Transaction ID / UPI ref"></div>
+    <div class="fg full"><label>Notes</label><textarea id="pmtNotes" rows="2"></textarea></div>
+  </div>
+  <div id="pmtAlert"></div>
+  <button class="btn btn-ok" style="margin-top:.8rem;width:100%" onclick="submitPayment(${bookingId})">✓ Record Payment</button>`);
+}
+
+async function submitPayment(bookingId){
+  const amt=parseFloat(document.getElementById('pmtAmt').value);
+  if(!amt||amt<=0){showAlert('pmtAlert','Please enter a valid amount','alert-err');return;}
+  const d=await api('POST','/payments',{
+    bookingId,amount:amt,
+    paymentType:document.getElementById('pmtType').value,
+    paymentMethod:document.getElementById('pmtMethod').value,
+    transactionRef:document.getElementById('pmtRef').value,
+    notes:document.getElementById('pmtNotes').value
+  });
+  if(d?.success){alert(`✅ ${d.message}`);closeGModal();loadBookings();}
+  else showAlert('pmtAlert',d?.message||'Payment failed','alert-err');
+}
+
+// ─── WALK-IN / NEW BOOKING ───────────────────────────────────
+async function pgWalkin(){
+  const[rtRes,cpRes]=await Promise.all([api('GET','/room-types?hotelId=1'),api('GET','/channels')]);
+  const rts=rtRes?.data||[];const cps=cpRes?.data||[];
+  document.getElementById('pageContent').innerHTML=`
+  <div style="display:grid;grid-template-columns:1.1fr .9fr;gap:1.2rem;">
+  <div>
+  <div class="card card-pad">
+    <div class="card-title" style="margin-bottom:1.2rem">🚶 New Booking</div>
+    <div class="fgrid">
+      <div class="fg full"><label>Room Type *</label>
+        <select id="nRT" onchange="getWalkInQuote()">
+          <option value="">— Select Room Type —</option>
+          ${rts.map(r=>`<option value="${r.roomTypeId}">${r.typeName} (max ${r.maxOccupancy})</option>`).join('')}
+        </select>
+      </div>
+      <div class="fg"><label>Check-In *</label><input type="date" id="nCI" value="${todayStr()}" onchange="getWalkInQuote()"></div>
+      <div class="fg"><label>Check-Out *</label><input type="date" id="nCO" value="${todayStr(1)}" onchange="getWalkInQuote()"></div>
+      <div class="fg"><label>Adults</label>
+        <select id="nAdults"><option>1</option><option selected>2</option><option>3</option><option>4</option></select>
+      </div>
+      <div class="fg"><label>Children</label>
+        <select id="nChild"><option selected>0</option><option>1</option><option>2</option></select>
+      </div>
+      <div class="fg full"><label>Channel Partner</label>
+        <select id="nPartner" onchange="getWalkInQuote()">
+          <option value="">Direct (Hotel Desk)</option>
+          ${cps.map(p=>`<option value="${p.partnerId}">${p.partnerName} (${p.commissionPercent}% commission)</option>`).join('')}
+        </select>
+      </div>
+      <div class="fg full"><label>Payment Mode</label>
+        <select id="nPayMode">
+          <option value="PayAtHotel">Pay at Hotel — guest pays on check-in</option>
+          <option value="OnlinePaid">Online Payment — already collected</option>
+        </select>
+      </div>
+      <div class="fg full"><label>Booking Source</label>
+        <select id="nSource">
+          <option value="HotelDesk">Hotel Desk</option>
+          <option value="WalkIn">Walk-In</option>
+          <option value="Phone">Phone</option>
+          <option value="ChannelPartner">Channel Partner</option>
+        </select>
+      </div>
+    </div>
+    <div style="border-top:1px solid var(--bdr);margin:1rem 0;padding-top:1rem;">
+      <div style="font-size:.8rem;font-weight:700;color:var(--p);margin-bottom:.8rem;text-transform:uppercase;letter-spacing:.5px;">Guest Information</div>
+      <div class="fgrid">
+        <div class="fg"><label>First Name *</label><input id="nGFN" placeholder="First name"></div>
+        <div class="fg"><label>Last Name *</label><input id="nGLN" placeholder="Last name"></div>
+        <div class="fg full"><label>Email *</label><input type="email" id="nGEmail" placeholder="guest@email.com"></div>
+        <div class="fg"><label>Phone</label><input type="tel" id="nGPhone" placeholder="+91-..."></div>
+        <div class="fg"><label>Nationality</label><input id="nGNat" placeholder="e.g. Indian"></div>
+        <div class="fg"><label>ID Type</label>
+          <select id="nGIDT"><option value="">Select</option><option>Passport</option><option>Aadhar Card</option><option>PAN Card</option><option>Driver's License</option><option>Voter ID</option></select>
+        </div>
+        <div class="fg"><label>ID Number</label><input id="nGIDN"></div>
+      </div>
+    </div>
+    <div class="fg" style="margin-bottom:.8rem;"><label>Special Requests</label><textarea id="nSpecReq" rows="2"></textarea></div>
+    <div id="walkInAlert"></div>
+    <button class="btn btn-p" style="width:100%;padding:.8rem" onclick="submitWalkIn()">✓ Create Booking</button>
+  </div>
+  </div>
+  <div>
+    <div class="card card-pad" id="quoteCard">
+      <div class="card-title" style="margin-bottom:1rem">💰 Price Quote</div>
+      <div id="walkInQuote" style="color:var(--txt2);font-size:.85rem;text-align:center;padding:1.5rem">
+        Select room type and dates to calculate pricing.
+      </div>
+      <div id="overrideBox" style="display:none;margin-top:1rem;padding-top:1rem;border-top:1px solid var(--bdr);">
+        <div style="font-size:.72rem;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.5px;margin-bottom:.5rem;">
+          ✏️ Override Nightly Rate
+        </div>
+        <div style="display:flex;align-items:center;gap:.5rem;">
+          <span style="font-size:.85rem;color:var(--txt2);">₹</span>
+          <input type="number" id="nOverrideRate" min="0" step="1" placeholder="Enter custom rate per night"
+            style="flex:1;padding:.5rem .7rem;border:1.5px solid var(--acc);border-radius:var(--r);font-size:.88rem;outline:none;font-family:'Inter',sans-serif;"
+            oninput="applyOverrideRate()" onfocus="this.style.borderColor='var(--p)'" onblur="this.style.borderColor='var(--acc)'">
+          <button onclick="clearOverrideRate()" title="Reset to standard rate"
+            style="background:none;border:1px solid var(--bdr);border-radius:var(--r);padding:.45rem .7rem;cursor:pointer;font-size:.8rem;color:var(--txt2);">✕ Reset</button>
+        </div>
+        <div id="overrideSummary" style="margin-top:.8rem;font-size:.82rem;"></div>
+      </div>
+    </div>
+    <div class="card card-pad" id="newConfCard" style="display:none;margin-top:1rem;"></div>
+  </div>
+  </div>`;
+}
+
+// Stores last fetched quote so override can recalculate without re-fetching
+let _lastWalkInQuote = null;
+
+async function getWalkInQuote(){
+  const rtId=document.getElementById('nRT')?.value;
+  const ci=document.getElementById('nCI')?.value;
+  const co=document.getElementById('nCO')?.value;
+  if(!rtId||!ci||!co) return;
+  const pid=document.getElementById('nPartner')?.value;
+  document.getElementById('walkInQuote').innerHTML='<span class="spin"></span> Calculating...';
+  const d=await api('POST','/bookings/quote',{roomTypeId:parseInt(rtId),checkInDate:ci,checkOutDate:co,partnerId:pid?parseInt(pid):null});
+  const q=d?.data;
+  if(!q){document.getElementById('walkInQuote').innerHTML='<div class="alert alert-err">Failed to get pricing.</div>';return;}
+  if(!q.isAvailable){
+    document.getElementById('walkInQuote').innerHTML=`<div class="alert alert-err">❌ ${q.unavailableReason}</div>`;
+    document.getElementById('overrideBox').style.display='none';
+    _lastWalkInQuote=null; return;
+  }
+  _lastWalkInQuote=q;
+  // Clear any previous override whenever room/dates change
+  const ovEl=document.getElementById('nOverrideRate');
+  if(ovEl) ovEl.value='';
+  document.getElementById('overrideSummary').innerHTML='';
+  renderWalkInQuote(q, null);
+  document.getElementById('overrideBox').style.display='block';
+}
+
+function renderWalkInQuote(q, overrideRate){
+  const nights=q.nights, taxPct=q.taxPercent;
+  const sub   = overrideRate!=null ? overrideRate*nights : q.subTotal;
+  const tax   = Math.round(sub*taxPct/100*100)/100;
+  const grand = sub+tax;
+  const comm  = overrideRate!=null
+    ? (q.commissionPercent>0 ? Math.round(grand*q.commissionPercent/100*100)/100 : 0)
+    : q.commissionAmount;
+  const net=grand-comm;
+  const isOv=overrideRate!=null;
+  document.getElementById('walkInQuote').innerHTML=`
+  <table style="width:100%;font-size:.82rem;border-collapse:collapse;">
+    ${q.nightlyRates.map(n=>`<tr>
+      <td style="padding:.25rem 0;color:var(--txt2)">${new Date(n.date).toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'})}${n.isWeekend?' ⭐':''}</td>
+      <td style="text-align:right;${isOv?'text-decoration:line-through;color:var(--txt2)':''}">${fmtMoney(n.rate)}</td>
+      ${isOv?`<td style="text-align:right;color:var(--warn);font-weight:600">${fmtMoney(overrideRate)}</td>`:''}
+    </tr>`).join('')}
+    <tr style="border-top:1px solid var(--bdr);">
+      <td style="padding:.4rem 0" colspan="${isOv?2:1}">Subtotal (${nights} night${nights>1?'s':''})</td>
+      <td style="text-align:right">${fmtMoney(sub)}</td>
+    </tr>
+    <tr>
+      <td style="padding:.25rem 0;color:var(--txt2)" colspan="${isOv?2:1}">GST (${taxPct}%)</td>
+      <td style="text-align:right;color:var(--txt2)">${fmtMoney(tax)}</td>
+    </tr>
+    <tr style="font-weight:700;font-size:.95rem;color:${isOv?'var(--warn)':'var(--p)'}">
+      <td style="padding:.4rem 0;border-top:2px solid var(--bdr)" colspan="${isOv?2:1}">Grand Total${isOv?' ✏️':''}</td>
+      <td style="text-align:right;border-top:2px solid var(--bdr)">${fmtMoney(grand)}</td>
+    </tr>
+    ${comm>0?`<tr style="color:var(--err)">
+      <td colspan="${isOv?2:1}">Commission (${q.commissionPercent}%)</td>
+      <td style="text-align:right">- ${fmtMoney(comm)}</td>
+    </tr>
+    <tr style="color:var(--ok);font-weight:600">
+      <td colspan="${isOv?2:1}">Net to Hotel</td>
+      <td style="text-align:right">${fmtMoney(net)}</td>
+    </tr>`:''}
+  </table>
+  ${isOv?`<div style="margin-top:.6rem;padding:.45rem .7rem;background:#fffbeb;border-left:3px solid var(--warn);font-size:.78rem;color:#92400e;border-radius:0 var(--r) var(--r) 0;">
+    ⚠️ Custom rate active: <strong>${fmtMoney(overrideRate)}/night</strong>. Invoice will use this price.
+  </div>`:''}`;
+}
+
+function applyOverrideRate(){
+  if(!_lastWalkInQuote) return;
+  const val=parseFloat(document.getElementById('nOverrideRate').value);
+  if(isNaN(val)||val<=0){
+    renderWalkInQuote(_lastWalkInQuote, null);
+    document.getElementById('overrideSummary').innerHTML='';
+    return;
+  }
+  renderWalkInQuote(_lastWalkInQuote, val);
+  const std=_lastWalkInQuote.subTotal/_lastWalkInQuote.nights;
+  const diff=val-std, pct=Math.round(diff/std*100), sign=diff>=0?'+':'';
+  document.getElementById('overrideSummary').innerHTML=
+    `<span style="font-size:.75rem;color:${diff<0?'var(--ok)':'var(--err)'}">
+      ${sign}${fmtMoney(diff)}/night vs standard rate (${sign}${pct}%)
+    </span>`;
+}
+
+function clearOverrideRate(){
+  document.getElementById('nOverrideRate').value='';
+  document.getElementById('overrideSummary').innerHTML='';
+  if(_lastWalkInQuote) renderWalkInQuote(_lastWalkInQuote, null);
+}
+
+async function submitWalkIn(){
+  const rtId=document.getElementById('nRT').value;
+  const fn=document.getElementById('nGFN').value.trim();
+  const ln=document.getElementById('nGLN').value.trim();
+  const em=document.getElementById('nGEmail').value.trim();
+  if(!rtId||!fn||!ln||!em){showAlert('walkInAlert','Room type, guest name and email are required.','alert-err');return;}
+  const pid=document.getElementById('nPartner').value;
+  const ovRaw=document.getElementById('nOverrideRate')?.value;
+  const overrideRate=ovRaw&&parseFloat(ovRaw)>0?parseFloat(ovRaw):null;
+  const payload={
+    hotelId:1, roomTypeId:parseInt(rtId),
+    checkInDate:document.getElementById('nCI').value,
+    checkOutDate:document.getElementById('nCO').value,
+    adultsCount:parseInt(document.getElementById('nAdults').value),
+    childrenCount:parseInt(document.getElementById('nChild').value),
+    paymentMode:document.getElementById('nPayMode').value,
+    bookingSource:document.getElementById('nSource').value,
+    partnerId:pid?parseInt(pid):null,
+    specialRequests:document.getElementById('nSpecReq').value,
+    overrideRoomRate:overrideRate,
+    guestFirstName:fn, guestLastName:ln, guestEmail:em,
+    guestPhone:document.getElementById('nGPhone').value,
+    guestNationality:document.getElementById('nGNat').value,
+    guestIDType:document.getElementById('nGIDT').value,
+    guestIDNumber:document.getElementById('nGIDN').value
+  };
+  showAlert('walkInAlert','<span class="spin"></span> Creating booking...','alert-ok');
+  const d=await api('POST','/bookings',payload);
+  if(d?.success){
+    const cc=document.getElementById('newConfCard'); cc.style.display='block';
+    const overrideNote=overrideRate?`<div style="margin-top:.3rem;font-size:.75rem;color:var(--warn);">✏️ Custom rate applied: ${fmtMoney(overrideRate)}/night</div>`:'';
+    cc.innerHTML=`<div style="text-align:center;">
+      <div style="font-size:2rem">✅</div>
+      <div style="font-family:'Playfair Display',serif;font-size:1.2rem;color:var(--p);margin:.5rem 0">Booking Confirmed</div>
+      <div style="font-size:1.5rem;font-weight:700;color:var(--ok);letter-spacing:3px;font-family:monospace">${d.data.bookingReference}</div>
+      <div style="font-size:.82rem;color:var(--txt2);margin:.4rem 0">Guest: ${fn} ${ln}</div>
+      <div style="font-size:.9rem;font-weight:600;color:var(--p)">Total: ${fmtMoney(d.data.grandTotal)}</div>
+      ${overrideNote}
+      <div style="display:flex;gap:.5rem;justify-content:center;margin-top:1rem">
+        <button class="btn btn-p btn-sm" onclick="viewBooking(${d.data.bookingId})">View Details</button>
+        <button class="btn btn-ghost btn-sm" onclick="pgWalkin()">New Booking</button>
+      </div>
+    </div>`;
+    document.getElementById('walkInAlert').innerHTML='';
+  } else showAlert('walkInAlert',d?.message||'Booking failed','alert-err');
+}
+
+// ─── ROOMS ───────────────────────────────────────────────────
+async function pgRooms(){
+  const[rtRes,rRes]=await Promise.all([api('GET','/room-types?hotelId=1'),api('GET','/rooms?hotelId=1')]);
+  const rts=rtRes?.data||[];const rooms=rRes?.data||[];
+  document.getElementById('pageContent').innerHTML=`
+  <div class="tabs"><div class="tab active" onclick="switchTab('tRT','tRooms',this)">Room Types</div><div class="tab" onclick="switchTab('tRooms','tRT',this)">Physical Rooms</div></div>
+  <div id="tRT">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Room Types (${rts.length})</span><button class="btn btn-p btn-sm" onclick="editRoomType(null)">+ Add Room Type</button></div>
+      <table><thead><tr><th>Type Name</th><th>Bed</th><th>Max Guests</th><th>Size</th><th>View</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody>${rts.map(r=>`<tr>
+        <td><strong>${r.typeName}</strong><br><small style="color:var(--txt2)">${r.description||''}</small></td>
+        <td>${r.bedType||'—'}</td><td>${r.maxOccupancy}</td>
+        <td>${r.sizeInSqFt?r.sizeInSqFt+' sqft':'—'}</td><td>${r.viewType||'—'}</td>
+        <td><span class="badge ${r.isActive?'b-ok':'b-err'}">${r.isActive?'Active':'Inactive'}</span></td>
+        <td><button class="btn btn-ghost btn-sm" onclick='editRoomType(${JSON.stringify(r).replace(/'/g,"&#39;")})'>Edit</button></td>
+      </tr>`).join('')}</tbody></table>
+    </div>
+  </div>
+  <div id="tRooms" style="display:none">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Rooms (${rooms.length})</span><button class="btn btn-p btn-sm" onclick='editRoom(null,${JSON.stringify(rts).replace(/'/g,"&#39;")})'>+ Add Room</button></div>
+      <table><thead><tr><th>Room No</th><th>Type</th><th>Floor</th><th>Status</th><th>Notes</th><th>Actions</th></tr></thead>
+      <tbody>${rooms.map(r=>`<tr>
+        <td><strong>${r.roomNumber}</strong></td><td>${r.typeName||'—'}</td><td>${r.floor||'—'}</td>
+        <td><span class="badge ${r.status==='Available'?'b-ok':r.status==='Occupied'?'b-err':'b-warn'}">${r.status}</span></td>
+        <td>${r.notes||'—'}</td>
+        <td><button class="btn btn-ghost btn-sm" onclick='editRoom(${JSON.stringify(r).replace(/'/g,"&#39;")},${JSON.stringify(rts).replace(/'/g,"&#39;")})'>Edit</button></td>
+      </tr>`).join('')}</tbody></table>
+    </div>
+  </div>`;
+}
+
+function switchTab(show,hide,el){
+  document.getElementById(show).style.display='block';
+  document.getElementById(hide).style.display='none';
+  el.parentElement.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function editRoomType(rt){
+  showGModal(`
+  <h3>${rt?'Edit':'Add'} Room Type</h3>
+  <div class="fgrid">
+    <div class="fg full"><label>Type Name *</label><input id="eRTName" value="${rt?.typeName||''}"></div>
+    <div class="fg full"><label>Description</label><textarea id="eRTDesc" rows="2">${rt?.description||''}</textarea></div>
+    <div class="fg"><label>Max Occupancy</label><input type="number" id="eRTOcc" value="${rt?.maxOccupancy||2}" min="1" max="12"></div>
+    <div class="fg"><label>Bed Type</label><input id="eRTBed" value="${rt?.bedType||''}" placeholder="King, Queen, Twin..."></div>
+    <div class="fg"><label>Size (sqft)</label><input type="number" id="eRTSz" value="${rt?.sizeInSqFt||''}"></div>
+    <div class="fg"><label>View Type</label><input id="eRTVw" value="${rt?.viewType||''}" placeholder="Sea View, City View..."></div>
+    <div class="fg full"><label>Amenities (comma-separated)</label><input id="eRTAm" value="${rt?.amenities?JSON.parse(rt.amenities||'[]').join(', '):''}"></div>
+    <div class="fg"><label>Sort Order</label><input type="number" id="eRTSo" value="${rt?.sortOrder||0}"></div>
+  </div>
+  <div id="rtAlert"></div>
+  <button class="btn btn-p" style="margin-top:.8rem;width:100%" onclick="saveRoomType(${rt?.roomTypeId||0})">Save Room Type</button>`);
+}
+
+async function saveRoomType(id){
+  const amen=document.getElementById('eRTAm').value;
+  const amenArr=amen.split(',').map(a=>a.trim()).filter(Boolean);
+  const d=await api('POST','/room-types',{roomTypeId:id,hotelId:1,typeName:document.getElementById('eRTName').value,description:document.getElementById('eRTDesc').value,maxOccupancy:parseInt(document.getElementById('eRTOcc').value)||2,bedType:document.getElementById('eRTBed').value,sizeInSqFt:parseFloat(document.getElementById('eRTSz').value)||null,viewType:document.getElementById('eRTVw').value,amenities:JSON.stringify(amenArr),sortOrder:parseInt(document.getElementById('eRTSo').value)||0,isActive:true});
+  if(d?.success){closeGModal();pgRooms();} else showAlert('rtAlert',d?.message||'Save failed','alert-err');
+}
+
+function editRoom(r,rts){
+  showGModal(`
+  <h3>${r?'Edit':'Add'} Room</h3>
+  <div class="fgrid">
+    <div class="fg"><label>Room Number *</label><input id="eRN" value="${r?.roomNumber||''}"></div>
+    <div class="fg"><label>Floor</label><input type="number" id="eRF" value="${r?.floor||''}"></div>
+    <div class="fg full"><label>Room Type *</label>
+      <select id="eRT">${rts.map(rt=>`<option value="${rt.roomTypeId}" ${r?.roomTypeId===rt.roomTypeId?'selected':''}>${rt.typeName}</option>`).join('')}</select>
+    </div>
+    <div class="fg full"><label>Status</label>
+      <select id="eRS"><option ${r?.status==='Available'?'selected':''}>Available</option><option ${r?.status==='Maintenance'?'selected':''}>Maintenance</option><option ${r?.status==='Blocked'?'selected':''}>Blocked</option></select>
+    </div>
+    <div class="fg full"><label>Notes</label><textarea id="eRNotes" rows="2">${r?.notes||''}</textarea></div>
+  </div>
+  <div id="roomAlert"></div>
+  <button class="btn btn-p" style="margin-top:.8rem;width:100%" onclick="saveRoom(${r?.roomId||0})">Save Room</button>`);
+}
+
+async function saveRoom(id){
+  const d=await api('POST','/rooms',{roomId:id,hotelId:1,roomTypeId:parseInt(document.getElementById('eRT').value),roomNumber:document.getElementById('eRN').value,floor:parseInt(document.getElementById('eRF').value)||null,status:document.getElementById('eRS').value,notes:document.getElementById('eRNotes').value,isActive:true});
+  if(d?.success){closeGModal();pgRooms();} else showAlert('roomAlert',d?.message||'Save failed','alert-err');
+}
+
+// ─── RATES ───────────────────────────────────────────────────
+async function pgRates(){
+  const rtRes=await api('GET','/room-types?hotelId=1');
+  const rts=rtRes?.data||[];
+  document.getElementById('pageContent').innerHTML=`
+  <div class="tabs"><div class="tab active" onclick="switchTab('tBulk','tDef',this)">Bulk Rate Update</div><div class="tab" onclick="switchTab('tDef','tBulk',this);loadDefRates()">Default Rates</div></div>
+  <div id="tBulk">
+    <div class="card card-pad" style="margin-bottom:1rem">
+      <div class="card-title" style="margin-bottom:1rem">📅 Set / Update Rates for Date Range</div>
+      <div class="fgrid">
+        <div class="fg"><label>Room Type *</label>
+          <select id="rRT"><option value="">Select type</option>${rts.map(r=>`<option value="${r.roomTypeId}">${r.typeName}</option>`).join('')}</select>
+        </div>
+        <div class="fg"><label>From Date *</label><input type="date" id="rFrom" value="${todayStr()}"></div>
+        <div class="fg"><label>To Date *</label><input type="date" id="rTo" value="${todayStr(6)}"></div>
+        <div class="fg"><label>Base Rate (₹) *</label><input type="number" id="rBase" placeholder="4500"></div>
+        <div class="fg"><label>Special Rate (₹)</label><input type="number" id="rSpec" placeholder="Override (optional)"></div>
+        <div class="fg"><label>Availability</label>
+          <select id="rAvail"><option value="true">Open for Booking</option><option value="false">Stop Sell (Close)</option></select>
+        </div>
+        <div class="fg"><label>Min Nights</label><input type="number" id="rMin" value="1" min="1"></div>
+      </div>
+      <div id="rateAlert"></div>
+      <button class="btn btn-p" style="margin-top:.8rem" onclick="saveBulkRates()">💾 Apply Rates</button>
+      <button class="btn btn-ghost" style="margin-top:.8rem;margin-left:.5rem" onclick="loadRateTable()">📊 View Current Rates</button>
+    </div>
+    <div id="rateTableDiv"></div>
+  </div>
+  <div id="tDef" style="display:none">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Default Rates (Fallback)</span><button class="btn btn-p btn-sm" onclick='editDefRate(null,${JSON.stringify(rts).replace(/'/g,"&#39;")})'>+ Add Default Rate</button></div>
+      <div id="defRateDiv"></div>
+    </div>
+  </div>`;
+}
+
+async function saveBulkRates(){
+  const rtId=document.getElementById('rRT').value;
+  const base=document.getElementById('rBase').value;
+  if(!rtId||!base){showAlert('rateAlert','Room type and base rate are required','alert-err');return;}
+  const d=await api('POST','/rates/bulk',{roomTypeId:parseInt(rtId),fromDate:document.getElementById('rFrom').value,toDate:document.getElementById('rTo').value,baseRate:parseFloat(base),specialRate:parseFloat(document.getElementById('rSpec').value)||null,isAvailable:document.getElementById('rAvail').value==='true',minNights:parseInt(document.getElementById('rMin').value)||1});
+  if(d?.success){showAlert('rateAlert','✅ '+d.message,'alert-ok');loadRateTable();}
+  else showAlert('rateAlert',d?.message||'Save failed','alert-err');
+}
+
+async function loadRateTable(){
+  const rtId=document.getElementById('rRT').value;
+  if(!rtId) return;
+  const d=await api('GET',`/rates?roomTypeId=${rtId}&from=${todayStr()}&to=${todayStr(30)}`);
+  const rates=d?.data||[];
+  document.getElementById('rateTableDiv').innerHTML=`<div class="card"><div class="card-header"><span class="card-title">Rates — Next 30 Days</span></div><table>
+    <thead><tr><th>Date</th><th>Day</th><th>Base Rate</th><th>Special Rate</th><th>Effective Rate</th><th>Min Nights</th><th>Status</th></tr></thead>
+    <tbody>${rates.map(r=>{
+      const isWknd=[5,6].includes(new Date(r.rateDate).getDay());
+      return`<tr>
+        <td>${fmt(r.rateDate)}</td>
+        <td><span class="${isWknd?'badge b-warn':'badge b-gray'}">${new Date(r.rateDate).toLocaleDateString('en-IN',{weekday:'short'})}</span></td>
+        <td>${fmtMoney(r.baseRate)}</td>
+        <td>${r.specialRate?`<strong style="color:var(--acc)">${fmtMoney(r.specialRate)}</strong>`:'—'}</td>
+        <td><strong style="color:var(--ok)">${fmtMoney(r.specialRate||r.baseRate)}</strong></td>
+        <td>${r.minNights}</td>
+        <td><span class="badge ${r.isAvailable?'b-ok':'b-err'}">${r.isAvailable?'Open':'Closed'}</span></td>
+      </tr>`;}).join('')}
+      ${rates.length===0?`<tr><td colspan="7" class="empty-state">No rates set — using default rates.</td></tr>`:''}
+    </tbody></table></div>`;
+}
+
+async function loadDefRates(){
+  const d=await api('GET','/rates/defaults');
+  const rates=d?.data||[];
+  document.getElementById('defRateDiv').innerHTML=`<table>
+    <thead><tr><th>Room Type</th><th>Weekday Rate</th><th>Weekend Rate</th><th>Effective From</th><th>Effective To</th></tr></thead>
+    <tbody>${rates.map(r=>`<tr><td>${r.typeName}</td><td>${fmtMoney(r.weekdayRate)}</td><td>${fmtMoney(r.weekendRate)}</td><td>${fmt(r.effectiveFrom)}</td><td>${r.effectiveTo?fmt(r.effectiveTo):'Ongoing'}</td></tr>`).join('')}</tbody>
+  </table>`;
+}
+
+function editDefRate(r,rts){
+  showGModal(`
+  <h3>${r?'Edit':'Add'} Default Rate</h3>
+  <div class="fgrid">
+    <div class="fg full"><label>Room Type *</label><select id="dRT">${rts.map(rt=>`<option value="${rt.roomTypeId}" ${r?.roomTypeId===rt.roomTypeId?'selected':''}>${rt.typeName}</option>`).join('')}</select></div>
+    <div class="fg"><label>Weekday Rate (₹) *</label><input type="number" id="dWD" value="${r?.weekdayRate||''}"></div>
+    <div class="fg"><label>Weekend Rate (₹) *</label><input type="number" id="dWE" value="${r?.weekendRate||''}"></div>
+    <div class="fg"><label>Effective From *</label><input type="date" id="dEF" value="${r?.effectiveFrom?.split('T')[0]||todayStr()}"></div>
+    <div class="fg"><label>Effective To</label><input type="date" id="dET" value="${r?.effectiveTo?.split('T')[0]||''}"></div>
+  </div>
+  <div id="drAlert"></div>
+  <button class="btn btn-p" style="margin-top:.8rem;width:100%" onclick="saveDefRate(${r?.defaultRateId||0})">Save Default Rate</button>`);
+}
+
+async function saveDefRate(id){
+  const d=await api('POST','/rates/defaults',{defaultRateId:id,roomTypeId:parseInt(document.getElementById('dRT').value),weekdayRate:parseFloat(document.getElementById('dWD').value),weekendRate:parseFloat(document.getElementById('dWE').value),effectiveFrom:document.getElementById('dEF').value,effectiveTo:document.getElementById('dET').value||null});
+  if(d?.success){closeGModal();loadDefRates();} else showAlert('drAlert',d?.message||'Save failed','alert-err');
+}
+
+// ─── AVAILABILITY ─────────────────────────────────────────────
+async function pgAvailability(){
+  const rtRes=await api('GET','/room-types?hotelId=1');
+  const rts=rtRes?.data||[];
+  document.getElementById('pageContent').innerHTML=`
+  <div class="two-col">
+  <div class="card card-pad">
+    <div class="card-title" style="margin-bottom:1rem">🔒 Block / Unblock Rooms</div>
+    <div class="fgrid">
+      <div class="fg full"><label>Room Type *</label><select id="avRT">${rts.map(r=>`<option value="${r.roomTypeId}">${r.typeName}</option>`).join('')}</select></div>
+      <div class="fg"><label>From Date</label><input type="date" id="avFrom" value="${todayStr()}"></div>
+      <div class="fg"><label>To Date</label><input type="date" id="avTo" value="${todayStr(6)}"></div>
+      <div class="fg"><label>Room Count</label><input type="number" id="avCnt" value="1" min="1"></div>
+    </div>
+    <div id="avAlert"></div>
+    <div style="display:flex;gap:.5rem;margin-top:.8rem">
+      <button class="btn btn-err" onclick="blockRooms()">🔒 Block</button>
+      <button class="btn btn-ok" onclick="unblockRooms()">🔓 Unblock</button>
+    </div>
+  </div>
+  <div class="card card-pad">
+    <div class="card-title" style="margin-bottom:1rem">📅 View Availability</div>
+    <div style="display:flex;gap:.5rem;margin-bottom:.8rem;flex-wrap:wrap">
+      <div class="ff"><label>Room Type</label><select id="avVRT"><option value="">All Types</option>${rts.map(r=>`<option value="${r.roomTypeId}">${r.typeName}</option>`).join('')}</select></div>
+      <div class="ff"><label>From</label><input type="date" id="avVFrom" value="${todayStr()}"></div>
+      <div class="ff"><label>To</label><input type="date" id="avVTo" value="${todayStr(14)}"></div>
+      <button class="btn btn-p btn-sm" style="align-self:flex-end" onclick="loadAvailGrid()">View</button>
+    </div>
+    <div id="avGrid"></div>
+  </div>
+  </div>`;
+  loadAvailGrid();
+}
+
+async function blockRooms(){
+  const d=await api('POST','/availability/block',{roomTypeId:parseInt(document.getElementById('avRT').value),fromDate:document.getElementById('avFrom').value,toDate:document.getElementById('avTo').value,blockCount:parseInt(document.getElementById('avCnt').value)});
+  if(d?.success){showAlert('avAlert','✅ Rooms blocked','alert-ok');loadAvailGrid();}else showAlert('avAlert',d?.message||'Failed','alert-err');
+}
+async function unblockRooms(){
+  const d=await api('POST','/availability/unblock',{roomTypeId:parseInt(document.getElementById('avRT').value),fromDate:document.getElementById('avFrom').value,toDate:document.getElementById('avTo').value,blockCount:parseInt(document.getElementById('avCnt').value)});
+  if(d?.success){showAlert('avAlert','✅ Rooms unblocked','alert-ok');loadAvailGrid();}else showAlert('avAlert',d?.message||'Failed','alert-err');
+}
+
+async function loadAvailGrid(){
+  const rtId=document.getElementById('avVRT')?.value;
+  const from=document.getElementById('avVFrom')?.value||todayStr();
+  const to=document.getElementById('avVTo')?.value||todayStr(14);
+  const d=await api('GET',`/availability?${rtId?`roomTypeId=${rtId}&`:''}from=${from}&to=${to}`);
+  const items=d?.data||[];
+  document.getElementById('avGrid').innerHTML=`<div style="overflow-x:auto"><table style="font-size:.78rem">
+    <thead><tr><th>Date</th><th>Type</th><th>Total</th><th>Blocked</th><th>Booked</th><th>Available</th><th>Occ%</th></tr></thead>
+    <tbody>${items.map(a=>`<tr>
+      <td>${fmt(a.availDate)}</td><td>${a.typeName}</td><td>${a.totalRooms}</td>
+      <td style="color:var(--warn)">${a.blockedRooms}</td>
+      <td style="color:var(--err)">${a.bookedRooms}</td>
+      <td style="color:var(--ok);font-weight:700">${a.availableRooms}</td>
+      <td><div class="occ-bar"><div class="occ-fill" style="width:${Math.round(a.bookedRooms/Math.max(a.totalRooms,1)*100)}%;background:${a.availableRooms===0?'var(--err)':'var(--ok)'}"></div></div></td>
+    </tr>`).join('')}
+    ${items.length===0?`<tr><td colspan="7" class="empty-state">No availability data found.</td></tr>`:''}
+    </tbody></table></div>`;
+}
+
+// ─── CHANNELS ────────────────────────────────────────────────
+async function pgChannels(){
+  const d=await api('GET','/channels?activeOnly=false');
+  const cps=d?.data||[];
+  document.getElementById('pageContent').innerHTML=`
+  <div class="card">
+    <div class="card-header"><span class="card-title">Channel Partners (${cps.length})</span><button class="btn btn-p btn-sm" onclick="editChannel(null)">+ Add Channel</button></div>
+    <div style="overflow-x:auto"><table><thead><tr><th>Partner</th><th>Code</th><th>Type</th><th>Commission</th><th>Payment Mode</th><th>Remittance</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody>${cps.map(p=>`<tr>
+      <td><strong>${p.partnerName}</strong>${p.contactEmail?`<br><small style="color:var(--txt2)">${p.contactEmail}</small>`:''}</td>
+      <td><code style="font-size:.78rem;color:var(--p)">${p.partnerCode}</code></td>
+      <td><span class="badge b-gray">${p.partnerType}</span></td>
+      <td><strong style="color:${p.commissionPercent>0?'var(--err)':'var(--ok)'}">${p.commissionPercent}%</strong></td>
+      <td>${payBadge(p.paymentMode)}</td>
+      <td>${p.remittanceDays>0?p.remittanceDays+' days':'N/A'}</td>
+      <td><span class="badge ${p.isActive?'b-ok':'b-err'}">${p.isActive?'Active':'Inactive'}</span></td>
+      <td><div style="display:flex;gap:.3rem">
+        <button class="btn btn-ghost btn-sm" onclick='editChannel(${JSON.stringify(p).replace(/'/g,"&#39;")})'>Edit</button>
+        <button class="btn btn-info btn-sm" onclick="showRateMappings(${p.partnerId},'${p.partnerName}')">Rates</button>
+        ${p.isActive?`<button class="btn btn-err btn-sm" onclick="deactivateChannel(${p.partnerId})">Deactivate</button>`:''}
+      </div></td>
+    </tr>`).join('')}
+    ${cps.length===0?`<tr><td colspan="8" class="empty-state">No channel partners configured.</td></tr>`:''}
+    </tbody></table></div>
+  </div>`;
+}
+
+function editChannel(p){
+  showGModal(`
+  <h3>${p?'Edit':'Add'} Channel Partner</h3>
+  <div class="fgrid">
+    <div class="fg full"><label>Partner Name *</label><input id="cpN" value="${p?.partnerName||''}"></div>
+    <div class="fg"><label>Partner Code *</label><input id="cpC" value="${p?.partnerCode||''}" ${p?'style="background:#f9fafb"':''} placeholder="BOOKING_COM"></div>
+    <div class="fg"><label>Type</label>
+      <select id="cpT"><option ${p?.partnerType==='OTA'?'selected':''}>OTA</option><option ${p?.partnerType==='GDS'?'selected':''}>GDS</option><option ${p?.partnerType==='Corporate'?'selected':''}>Corporate</option><option ${p?.partnerType==='Wholesale'?'selected':''}>Wholesale</option><option ${p?.partnerType==='MetaSearch'?'selected':''}>MetaSearch</option></select>
+    </div>
+    <div class="fg"><label>Commission %</label><input type="number" id="cpComm" value="${p?.commissionPercent||0}" min="0" max="100" step="0.5"></div>
+    <div class="fg"><label>Payment Mode</label>
+      <select id="cpPay"><option value="OnlineCollect" ${p?.paymentMode==='OnlineCollect'?'selected':''}>Online Collect (partner pays hotel)</option><option value="PayAtHotel" ${p?.paymentMode==='PayAtHotel'?'selected':''}>Pay at Hotel (guest pays hotel)</option></select>
+    </div>
+    <div class="fg"><label>Remittance Days</label><input type="number" id="cpRD" value="${p?.remittanceDays||30}"></div>
+    <div class="fg"><label>Contact Name</label><input id="cpCN" value="${p?.contactName||''}"></div>
+    <div class="fg"><label>Contact Email</label><input type="email" id="cpCE" value="${p?.contactEmail||''}"></div>
+    <div class="fg"><label>Contract Start</label><input type="date" id="cpCS" value="${p?.contractStartDate?.split('T')[0]||''}"></div>
+    <div class="fg"><label>Contract End</label><input type="date" id="cpCEnd" value="${p?.contractEndDate?.split('T')[0]||''}"></div>
+    <div class="fg full"><label>API Key</label><input id="cpAK" value="${p?.apiKey||''}" placeholder="Channel API key"></div>
+    <div class="fg full"><label>Webhook URL</label><input id="cpWH" value="${p?.webhookURL||''}" placeholder="https://..."></div>
+  </div>
+  <div id="cpAlert"></div>
+  <button class="btn btn-p" style="margin-top:.8rem;width:100%" onclick="saveChannel(${p?.partnerId||0})">Save Channel Partner</button>`,640);
+}
+
+async function saveChannel(id){
+  const d=await api('POST','/channels',{partnerId:id,hotelId:1,partnerName:document.getElementById('cpN').value,partnerCode:document.getElementById('cpC').value,partnerType:document.getElementById('cpT').value,commissionPercent:parseFloat(document.getElementById('cpComm').value)||0,paymentMode:document.getElementById('cpPay').value,remittanceDays:parseInt(document.getElementById('cpRD').value)||30,contactName:document.getElementById('cpCN').value,contactEmail:document.getElementById('cpCE').value,contractStartDate:document.getElementById('cpCS').value||null,contractEndDate:document.getElementById('cpCEnd').value||null,apiKey:document.getElementById('cpAK').value,webhookURL:document.getElementById('cpWH').value,isActive:true});
+  if(d?.success){closeGModal();pgChannels();}else showAlert('cpAlert',d?.message||'Save failed','alert-err');
+}
+
+async function deactivateChannel(id){
+  if(!confirm('Deactivate this channel partner?')) return;
+  await api('DELETE',`/channels/${id}`);pgChannels();
+}
+
+async function showRateMappings(pid,pname){
+  const[rtRes,mapRes]=await Promise.all([api('GET','/room-types?hotelId=1'),api('GET',`/channels/rate-mappings?partnerId=${pid}`)]);
+  const rts=rtRes?.data||[];const maps=mapRes?.data||[];
+  showGModal(`
+  <h3>Rate Mappings — ${pname}</h3>
+  <p style="color:var(--txt2);font-size:.82rem;margin-bottom:1rem">Set markup percentage applied on top of base room rate for this channel. Positive = markup, negative = discount.</p>
+  <table style="width:100%;font-size:.83rem;border-collapse:collapse">
+    <thead><tr><th style="padding:.5rem 0">Room Type</th><th>Current Markup</th><th>New Markup %</th><th></th></tr></thead>
+    <tbody>${rts.map(rt=>{
+      const m=maps.find(x=>x.roomTypeId===rt.roomTypeId);
+      return`<tr><td style="padding:.4rem 0"><strong>${rt.typeName}</strong></td><td><span class="badge ${(m?.markupPercent||0)>0?'b-warn':'b-gray'}">${m?.markupPercent||0}%</span></td><td><input type="number" id="mup_${rt.roomTypeId}" value="${m?.markupPercent||0}" style="width:70px;padding:.3rem;border:1px solid var(--bdr);border-radius:4px;text-align:center"></td><td><button class="btn btn-ok btn-sm" onclick="saveMapping(${pid},${rt.roomTypeId})">Save</button></td></tr>`;
+    }).join('')}</tbody>
+  </table>`,520);
+}
+
+async function saveMapping(pid,rtId){
+  const markup=parseFloat(document.getElementById(`mup_${rtId}`).value)||0;
+  const d=await api('POST','/channels/rate-mappings',{partnerId:pid,roomTypeId:rtId,markupPercent:markup,isActive:true});
+  if(d?.success){const el=document.getElementById(`mup_${rtId}`);el.style.background='#d1fae5';setTimeout(()=>el.style.background='',1500);}
+}
+
+// ─── REMITTANCES ─────────────────────────────────────────────
+async function pgRemittances(){
+  const[cpRes,remRes]=await Promise.all([api('GET','/channels'),api('GET','/channels/remittances')]);
+  const cps=(cpRes?.data||[]).filter(p=>p.paymentMode==='OnlineCollect');
+  const rems=remRes?.data||[];
+  document.getElementById('pageContent').innerHTML=`
+  <div class="card">
+    <div class="card-header"><span class="card-title">Partner Remittances (${rems.length})</span>
+      <button class="btn btn-p btn-sm" onclick='editRemittance(null,${JSON.stringify(cps).replace(/'/g,"&#39;")})'>+ Record Remittance</button>
+    </div>
+    <table><thead><tr><th>Partner</th><th>Period</th><th>Bookings</th><th>Gross</th><th>Commission</th><th>Net Amount</th><th>Received</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody>${rems.map(r=>`<tr>
+      <td><strong>${r.partnerName}</strong></td>
+      <td>${fmt(r.periodFrom)} – ${fmt(r.periodTo)}</td>
+      <td>${r.totalBookings}</td>
+      <td>${fmtMoney(r.grossAmount)}</td>
+      <td style="color:var(--err)">${fmtMoney(r.commissionAmount)}</td>
+      <td><strong>${fmtMoney(r.netAmount)}</strong></td>
+      <td style="color:var(--ok)">${fmtMoney(r.receivedAmount)}</td>
+      <td><span class="badge ${r.status==='Received'?'b-ok':r.status==='Overdue'?'b-err':r.status==='Partial'?'b-warn':'b-gray'}">${r.status}</span></td>
+      <td><button class="btn btn-ghost btn-sm" onclick='editRemittance(${JSON.stringify(r).replace(/'/g,"&#39;")},${JSON.stringify(cps).replace(/'/g,"&#39;")})'>Update</button></td>
+    </tr>`).join('')}
+    ${rems.length===0?`<tr><td colspan="9" class="empty-state">No remittances recorded yet.</td></tr>`:''}
+    </tbody></table>
+  </div>`;
+}
+
+function editRemittance(r,cps){
+  showGModal(`
+  <h3>${r?'Update':'Record'} Remittance</h3>
+  <div class="fgrid">
+    <div class="fg full"><label>Channel Partner *</label>
+      <select id="rPid">${cps.map(p=>`<option value="${p.partnerId}" ${r?.partnerId===p.partnerId?'selected':''}>${p.partnerName}</option>`).join('')}</select>
+    </div>
+    <div class="fg"><label>Period From *</label><input type="date" id="rPF" value="${r?.periodFrom?.split('T')[0]||todayStr(-30)}"></div>
+    <div class="fg"><label>Period To *</label><input type="date" id="rPT" value="${r?.periodTo?.split('T')[0]||todayStr()}"></div>
+    <div class="fg"><label>Total Bookings</label><input type="number" id="rTB" value="${r?.totalBookings||0}"></div>
+    <div class="fg"><label>Gross Amount (₹)</label><input type="number" id="rGA" value="${r?.grossAmount||0}"></div>
+    <div class="fg"><label>Commission (₹)</label><input type="number" id="rCA" value="${r?.commissionAmount||0}"></div>
+    <div class="fg"><label>Net Amount (₹)</label><input type="number" id="rNA" value="${r?.netAmount||0}"></div>
+    <div class="fg"><label>Received Amount (₹)</label><input type="number" id="rRA" value="${r?.receivedAmount||0}"></div>
+    <div class="fg"><label>Status</label>
+      <select id="rSt"><option ${r?.status==='Expected'?'selected':''}>Expected</option><option ${r?.status==='Received'?'selected':''}>Received</option><option ${r?.status==='Partial'?'selected':''}>Partial</option><option ${r?.status==='Overdue'?'selected':''}>Overdue</option></select>
+    </div>
+    <div class="fg"><label>Transaction Ref</label><input id="rTR" value="${r?.transactionRef||''}"></div>
+    <div class="fg full"><label>Notes</label><textarea id="rNotes" rows="2">${r?.notes||''}</textarea></div>
+  </div>
+  <div id="remAlert"></div>
+  <button class="btn btn-p" style="margin-top:.8rem;width:100%" onclick="saveRemittance(${r?.remittanceId||0})">Save Remittance</button>`);
+}
+
+async function saveRemittance(id){
+  const d=await api('POST','/channels/remittances',{remittanceId:id,partnerId:parseInt(document.getElementById('rPid').value),periodFrom:document.getElementById('rPF').value,periodTo:document.getElementById('rPT').value,totalBookings:parseInt(document.getElementById('rTB').value)||0,grossAmount:parseFloat(document.getElementById('rGA').value)||0,commissionAmount:parseFloat(document.getElementById('rCA').value)||0,netAmount:parseFloat(document.getElementById('rNA').value)||0,receivedAmount:parseFloat(document.getElementById('rRA').value)||0,status:document.getElementById('rSt').value,transactionRef:document.getElementById('rTR').value,notes:document.getElementById('rNotes').value});
+  if(d?.success){closeGModal();pgRemittances();}else showAlert('remAlert',d?.message||'Save failed','alert-err');
+}
+
+// ─── REPORTS ─────────────────────────────────────────────────
+async function pgReports(){
+  document.getElementById('pageContent').innerHTML=`
+  <div class="filters">
+    <div class="ff"><label>From</label><input type="date" id="rpFrom" value="${new Date(new Date().getFullYear(),new Date().getMonth(),1).toISOString().split('T')[0]}"></div>
+    <div class="ff"><label>To</label><input type="date" id="rpTo" value="${todayStr()}"></div>
+    <div class="ff"><label>Status</label><select id="rpStat"><option value="">All</option><option>Confirmed</option><option>CheckedIn</option><option>CheckedOut</option><option>Cancelled</option></select></div>
+    <div class="ff"><label>Source</label><select id="rpSrc"><option value="">All</option><option value="HotelDesk">Hotel Desk</option><option value="Website">Website</option><option value="ChannelPartner">Channel Partner</option><option value="WalkIn">Walk-In</option></select></div>
+    <button class="btn btn-p" onclick="runReport()">Generate Report</button>
+    <button class="btn btn-ghost" onclick="window.print()">🖨 Print</button>
+  </div>
+  <div id="reportOut"></div>`;
+  runReport();
+}
+
+async function runReport(){
+  const from=document.getElementById('rpFrom').value;
+  const to=document.getElementById('rpTo').value;
+  const stat=document.getElementById('rpStat').value;
+  const src=document.getElementById('rpSrc').value;
+  const d=await api('GET',`/reports/bookings?fromDate=${from}&toDate=${to}&status=${stat}&bookingSource=${src}&size=200`);
+  const items=Array.isArray(d?.data)?d.data:[];
+  const gross=items.reduce((s,b)=>s+(b.grandTotal||0),0);
+  const net=items.reduce((s,b)=>s+(b.netToHotel||0),0);
+  const comm=items.reduce((s,b)=>s+(b.commissionAmount||0),0);
+  const cancelled=items.filter(b=>b.bookingStatus==='Cancelled').length;
+  document.getElementById('reportOut').innerHTML=`
+  <div class="stat-grid">
+    <div class="stat"><div class="stat-ic" style="background:#dbeafe">📋</div><div><div class="stat-val">${items.length}</div><div class="stat-lbl">Total Bookings</div></div></div>
+    <div class="stat"><div class="stat-ic" style="background:#d1fae5">💰</div><div><div class="stat-val" style="font-size:1.1rem">${fmtK(gross)}</div><div class="stat-lbl">Gross Revenue</div></div></div>
+    <div class="stat"><div class="stat-ic" style="background:#fee2e2">📤</div><div><div class="stat-val" style="font-size:1.1rem">${fmtK(comm)}</div><div class="stat-lbl">Commission</div></div></div>
+    <div class="stat"><div class="stat-ic" style="background:#d1fae5">✅</div><div><div class="stat-val" style="font-size:1.1rem">${fmtK(net)}</div><div class="stat-lbl">Net to Hotel</div></div></div>
+    <div class="stat"><div class="stat-ic" style="background:#fee2e2">❌</div><div><div class="stat-val" style="color:var(--err)">${cancelled}</div><div class="stat-lbl">Cancellations</div></div></div>
+  </div>
+  <div class="card"><div style="overflow-x:auto"><table>
+    <thead><tr><th>Reference</th><th>Guest</th><th>Room</th><th>Check-In</th><th>Nights</th><th>Channel</th><th>Gross</th><th>Commission</th><th>Net</th><th>Payment</th><th>Status</th></tr></thead>
+    <tbody>${items.map(b=>`<tr>
+      <td><code style="font-size:.78rem;color:var(--p)">${b.bookingReference}</code></td>
+      <td>${b.guestName}</td><td>${b.roomTypeName}</td>
+      <td>${fmt(b.checkInDate)}</td><td>${b.totalNights}</td>
+      <td>${b.channelName||'Direct'}</td>
+      <td>${fmtMoney(b.grandTotal)}</td>
+      <td style="color:var(--err)">${fmtMoney(b.commissionAmount)}</td>
+      <td style="color:var(--ok)"><strong>${fmtMoney(b.netToHotel)}</strong></td>
+      <td>${payBadge(b.paymentMode)}</td>
+      <td>${statusBadge(b.bookingStatus)}</td>
+    </tr>`).join('')}
+    ${items.length===0?`<tr><td colspan="11" class="empty-state">No bookings found for this period.</td></tr>`:''}
+    </tbody>
+  </table></div></div>`;
+}
+
+// ─── PAYMENTS ────────────────────────────────────────────────
+async function pgPayments(){
+  const d=await api('GET','/payments');
+  const pmts=Array.isArray(d?.data)?d.data:[];
+  const totalAmt=pmts.reduce((s,p)=>s+(p.amount||0),0);
+  document.getElementById('pageContent').innerHTML=`
+  <div class="stat-grid">
+    <div class="stat"><div class="stat-ic" style="background:#d1fae5">💰</div><div><div class="stat-val" style="font-size:1.1rem">${fmtK(totalAmt)}</div><div class="stat-lbl">Total Collected</div></div></div>
+    <div class="stat"><div class="stat-ic" style="background:#dbeafe">📄</div><div><div class="stat-val">${pmts.length}</div><div class="stat-lbl">Transactions</div></div></div>
+  </div>
+  <div class="card"><div class="card-header"><span class="card-title">Payment Transactions</span></div>
+  <table><thead><tr><th>Date</th><th>Booking Ref</th><th>Guest</th><th>Amount</th><th>Type</th><th>Method</th><th>Ref</th><th>Status</th></tr></thead>
+  <tbody>${pmts.map(p=>`<tr>
+    <td>${fmt(p.paymentDate)}</td>
+    <td><code style="font-size:.78rem;color:var(--p)">${p.bookingReference||'—'}</code></td>
+    <td>${p.guestName||'—'}</td>
+    <td><strong>${fmtMoney(p.amount)}</strong></td>
+    <td><span class="badge b-gray">${p.paymentType}</span></td>
+    <td><span class="badge b-info">${p.paymentMethod}</span></td>
+    <td><small>${p.transactionRef||'—'}</small></td>
+    <td><span class="badge ${p.status==='Completed'?'b-ok':p.status==='Refunded'?'b-warn':'b-err'}">${p.status}</span></td>
+  </tr>`).join('')}
+  ${pmts.length===0?`<tr><td colspan="8" class="empty-state">No payments recorded.</td></tr>`:''}
+  </tbody></table></div>`;
+}
+
+// ─── CUSTOMERS ───────────────────────────────────────────────
+async function pgCustomers(){
+  document.getElementById('pageContent').innerHTML=`
+  <div class="filters">
+    <div class="ff" style="flex:2"><label>Search</label><input type="text" id="csQ" placeholder="Name, email, phone, ID number..."></div>
+    <button class="btn btn-p" onclick="loadCustomers()">Search</button>
+  </div>
+  <div id="custList"><div style="text-align:center;padding:2rem"><span class="spin"></span></div></div>`;
+  loadCustomers();
+}
+
+async function loadCustomers(){
+  const q=document.getElementById('csQ')?.value||'';
+  const d=await api('GET',`/customers?q=${encodeURIComponent(q)}&size=50`);
+  const custs=Array.isArray(d?.data)?d.data:[];
+  document.getElementById('custList').innerHTML=`<div class="card"><div class="card-header"><span class="card-title">Customers (${d?.totalCount||custs.length})</span></div>
+  <table><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Nationality</th><th>ID</th><th>VIP</th><th>Stays</th><th>Since</th></tr></thead>
+  <tbody>${custs.map(c=>`<tr>
+    <td><strong>${c.firstName} ${c.lastName}</strong></td>
+    <td>${c.email}</td><td>${c.phone||'—'}</td>
+    <td>${c.nationality||'—'}</td>
+    <td>${c.idType?`${c.idType}: ${c.idNumber}`:'—'}</td>
+    <td><span class="badge ${c.vipStatus==='Platinum'?'b-purple':c.vipStatus==='Gold'?'b-warn':c.vipStatus==='Silver'?'b-gray':'b-gray'}">${c.vipStatus}</span></td>
+    <td style="text-align:center"><strong>${c.totalStays}</strong></td>
+    <td>${fmt(c.createdAt)}</td>
+  </tr>`).join('')}
+  ${custs.length===0?`<tr><td colspan="8" class="empty-state">No customers found.</td></tr>`:''}
+  </tbody></table></div>`;
+}
+
+// ─── USERS ───────────────────────────────────────────────────
+async function pgUsers(){
+  const d=await api('GET','/users');
+  const users=Array.isArray(d?.data)?d.data:[];
+  document.getElementById('pageContent').innerHTML=`
+  <div class="card">
+    <div class="card-header"><span class="card-title">System Users (${users.length})</span><button class="btn btn-p btn-sm" onclick="editUser(null)">+ Add User</button></div>
+    <table><thead><tr><th>Username</th><th>Full Name</th><th>Email</th><th>Role</th><th>Status</th><th>Last Login</th><th>Actions</th></tr></thead>
+    <tbody>${users.map(u=>`<tr>
+      <td><strong>${u.username}</strong></td>
+      <td>${u.fullName||'—'}</td><td>${u.email||'—'}</td>
+      <td><span class="badge ${u.role==='SuperAdmin'?'b-purple':u.role==='HotelAdmin'?'b-info':'b-gray'}">${u.role}</span></td>
+      <td><span class="badge ${u.isActive?'b-ok':'b-err'}">${u.isActive?'Active':'Inactive'}</span></td>
+      <td>${u.lastLoginAt?fmt(u.lastLoginAt):'Never'}</td>
+      <td><div style="display:flex;gap:.3rem">
+        <button class="btn btn-ghost btn-sm" onclick='editUser(${JSON.stringify(u).replace(/'/g,"&#39;")})'>Edit</button>
+        <button class="btn btn-ghost btn-sm" onclick="resetPwd(${u.userId})">Reset Pwd</button>
+      </div></td>
+    </tr>`).join('')}
+    ${users.length===0?`<tr><td colspan="7" class="empty-state">No users found.</td></tr>`:''}
+    </tbody></table>
+  </div>`;
+}
+
+function editUser(u){
+  showGModal(`
+  <h3>${u?'Edit':'Add'} User</h3>
+  <div class="fgrid">
+    <div class="fg"><label>Username *</label><input id="euUN" value="${u?.username||''}" ${u?'style="background:#f9fafb"':''}></div>
+    <div class="fg"><label>Password ${u?'(leave blank)':' *'}</label><input type="password" id="euPW" placeholder="${u?'New password (optional)':'Min 8 characters'}"></div>
+    <div class="fg"><label>Full Name</label><input id="euFN" value="${u?.fullName||''}"></div>
+    <div class="fg"><label>Email</label><input type="email" id="euEM" value="${u?.email||''}"></div>
+    <div class="fg"><label>Phone</label><input id="euPH" value="${u?.phone||''}"></div>
+    <div class="fg"><label>Role</label>
+      <select id="euRL"><option ${u?.role==='FrontDesk'?'selected':''}>FrontDesk</option><option ${u?.role==='Reservations'?'selected':''}>Reservations</option><option ${u?.role==='Finance'?'selected':''}>Finance</option><option ${u?.role==='HotelAdmin'?'selected':''}>HotelAdmin</option><option ${u?.role==='ReportViewer'?'selected':''}>ReportViewer</option><option ${u?.role==='SuperAdmin'?'selected':''}>SuperAdmin</option></select>
+    </div>
+    <div class="fg"><label>Status</label><select id="euAct"><option value="true" ${u?.isActive!==false?'selected':''}>Active</option><option value="false" ${u?.isActive===false?'selected':''}>Inactive</option></select></div>
+  </div>
+  <div id="userAlert"></div>
+  <button class="btn btn-p" style="margin-top:.8rem;width:100%" onclick="saveUser(${u?.userId||0})">Save User</button>`);
+}
+
+async function saveUser(id){
+  const pw=document.getElementById('euPW').value;
+  if(id===0&&!pw){showAlert('userAlert','Password is required for new users','alert-err');return;}
+  if(pw&&pw.length<8){showAlert('userAlert','Password must be at least 8 characters','alert-err');return;}
+  const body=id===0
+    ?{username:document.getElementById('euUN').value,password:pw,fullName:document.getElementById('euFN').value,email:document.getElementById('euEM').value,phone:document.getElementById('euPH').value,role:document.getElementById('euRL').value,hotelId:1}
+    :{fullName:document.getElementById('euFN').value,email:document.getElementById('euEM').value,phone:document.getElementById('euPH').value,role:document.getElementById('euRL').value,isActive:document.getElementById('euAct').value==='true'};
+  const d=await api(id===0?'POST':'PUT',id===0?'/users':`/users/${id}`,body);
+  if(d?.success){closeGModal();pgUsers();}else showAlert('userAlert',d?.message||'Save failed','alert-err');
+}
+
+async function resetPwd(id){
+  const pw=prompt('Enter new password (min 8 characters):');
+  if(!pw||pw.length<8){alert('Password must be at least 8 characters.');return;}
+  const d=await api('POST',`/users/${id}/reset-password`,{password:pw});
+  if(d?.success) alert('✅ Password reset successfully.');
+  else alert(d?.message||'Failed');
+}
+
+// ─── SETTINGS ────────────────────────────────────────────────
+async function pgSettings(){
+  const[hotelRes,settRes]=await Promise.all([api('GET','/hotels/1'),api('GET','/settings')]);
+  const h=hotelRes?.data;
+  const settings=settRes?.data||[];
+
+  // Build effective-value map: SystemSettings can override Hotels table values
+  const ss=parseSettings(settings);
+  const eff={
+    checkIn:   ss['hotel.checkInTime']  || h?.checkInTime  || '',
+    checkOut:  ss['hotel.checkOutTime'] || h?.checkOutTime || '',
+    taxPct:    ss['hotel.taxPercent']   || ss['DefaultTaxPercent'] || (h?.taxPercent!=null?String(h.taxPercent):''),
+    cancelHrs: ss['hotel.cancellationPolicyHours'] || ss['cancellation.policyHours'] || (h?.cancellationPolicyHours!=null?String(h.cancellationPolicyHours):''),
+  };
+
+  document.getElementById('pageContent').innerHTML=`
+  <div class="two-col">
+  <div>
+  <div class="card card-pad">
+    <div class="card-title" style="margin-bottom:.3rem">🏨 Hotel Profile</div>
+    <p style="font-size:.75rem;color:var(--txt2);margin-bottom:1rem">Stored in the <code>Hotels</code> table — primary source for hotel-level configuration.</p>
+    <div class="fgrid">
+      <div class="fg full"><label>Hotel Name</label><input id="hN" value="${h?.hotelName||''}"></div>
+      <div class="fg full"><label>Address</label><textarea id="hA" rows="2">${h?.address||''}</textarea></div>
+      <div class="fg"><label>City</label><input id="hC" value="${h?.city||''}"></div>
+      <div class="fg"><label>State</label><input id="hSt" value="${h?.state||''}"></div>
+      <div class="fg"><label>Country</label><input id="hCo" value="${h?.country||''}"></div>
+      <div class="fg"><label>Phone</label><input id="hPh" value="${h?.phone||''}"></div>
+      <div class="fg"><label>Email</label><input type="email" id="hEm" value="${h?.email||''}"></div>
+      <div class="fg"><label>Website</label><input id="hWb" value="${h?.website||''}"></div>
+      <div class="fg"><label>Star Rating</label><select id="hSr"><option ${h?.starRating===3?'selected':''}>3</option><option ${h?.starRating===4?'selected':''}>4</option><option ${h?.starRating===5?'selected':''}>5</option></select></div>
+      <div class="fg"><label>Currency Code</label><input id="hCur" value="${h?.currencyCode||'INR'}"></div>
+      <div class="fg">
+        <label>Tax % (GST) <small style="color:var(--txt2)">Hotels table</small></label>
+        <input type="number" id="hTx" value="${h?.taxPercent||12}" step="0.5">
+        ${eff.taxPct&&eff.taxPct!==String(h?.taxPercent)?`<small style="color:var(--warn)">⚠️ Overridden by SystemSettings: ${eff.taxPct}%</small>`:''}
+      </div>
+      <div class="fg">
+        <label>Check-In Time <small style="color:var(--txt2)">Hotels table</small></label>
+        <input type="time" id="hCI" value="${h?.checkInTime||'14:00:00'}">
+        ${eff.checkIn&&eff.checkIn!==h?.checkInTime?`<small style="color:var(--warn)">⚠️ Overridden by SystemSettings: ${eff.checkIn}</small>`:''}
+      </div>
+      <div class="fg">
+        <label>Check-Out Time <small style="color:var(--txt2)">Hotels table</small></label>
+        <input type="time" id="hCO" value="${h?.checkOutTime||'11:00:00'}">
+        ${eff.checkOut&&eff.checkOut!==h?.checkOutTime?`<small style="color:var(--warn)">⚠️ Overridden by SystemSettings: ${eff.checkOut}</small>`:''}
+      </div>
+      <div class="fg">
+        <label>Cancellation Policy (hrs) <small style="color:var(--txt2)">Hotels table</small></label>
+        <input type="number" id="hCP" value="${h?.cancellationPolicyHours||24}">
+        ${eff.cancelHrs&&eff.cancelHrs!==String(h?.cancellationPolicyHours)?`<small style="color:var(--warn)">⚠️ Overridden by SystemSettings: ${eff.cancelHrs}hrs</small>`:''}
+      </div>
+      <div class="fg"><label>Late Cancel Charge %</label><input type="number" id="hCC" value="${h?.lateCancelChargePercent||50}"></div>
+      <div class="fg full"><label>Description / Tagline</label><textarea id="hDesc" rows="2">${h?.description||''}</textarea></div>
+    </div>
+    <div id="hotelAlert"></div>
+    <button class="btn btn-p" style="margin-top:.8rem" onclick="saveHotel(${h?.hotelId||1})">💾 Save Hotel Profile</button>
+  </div>
+  </div>
+  <div>
+  <div class="card card-pad">
+    <div class="card-title" style="margin-bottom:.3rem">⚙️ System Settings</div>
+    <p style="font-size:.75rem;color:var(--txt2);margin-bottom:.8rem">Stored in the <code>SystemSettings</code> table as key-value pairs. Values here override or extend the Hotel Profile on the public site and admin panel.</p>
+    ${settings.length>0?`<div style="background:#fef3c7;border:1px solid #fde68a;border-radius:4px;padding:.6rem .9rem;font-size:.76rem;color:#92400e;margin-bottom:.9rem">
+      ⚠️ <strong>Currently active effective values (SystemSettings take priority):</strong><br>
+      Check-In: <strong>${eff.checkIn||'— (from Hotels table)'}</strong> &nbsp;·&nbsp;
+      Check-Out: <strong>${eff.checkOut||'— (from Hotels table)'}</strong> &nbsp;·&nbsp;
+      GST: <strong>${eff.taxPct?eff.taxPct+'%':'— (from Hotels table)'}</strong> &nbsp;·&nbsp;
+      Cancel: <strong>${eff.cancelHrs?eff.cancelHrs+'hrs':'— (from Hotels table)'}</strong>
+    </div>`:''}
+    <table style="font-size:.82rem;width:100%;border-collapse:collapse">
+      <thead><tr><th>Setting Key</th><th>Value</th><th></th></tr></thead>
+      <tbody>${settings.map(s=>`<tr>
+        <td><strong>${s.settingKey}</strong>${s.description?`<br><small style="color:var(--txt2)">${s.description}</small>`:''}</td>
+        <td><input id="sv_${s.settingKey}" value="${String(s.settingValue||'').replace(/"/g,'&quot;')}" style="width:100%;padding:.3rem .5rem;border:1px solid var(--bdr);border-radius:4px;font-size:.8rem"></td>
+        <td><button class="btn btn-ok btn-sm" onclick="saveSetting('${s.settingKey}')">Save</button></td>
+      </tr>`).join('')}
+      ${settings.length===0?`<tr><td colspan="3" class="empty-state">No rows found in the <code>SystemSettings</code> table.</td></tr>`:''}
+      </tbody>
+    </table>
+  </div>
+  </div>
+  </div>`;
+}
+
+async function saveHotel(id){
+  const d=await api('POST','/hotels',{hotelId:id,hotelName:document.getElementById('hN').value,address:document.getElementById('hA').value,city:document.getElementById('hC').value,state:document.getElementById('hSt').value,country:document.getElementById('hCo').value,phone:document.getElementById('hPh').value,email:document.getElementById('hEm').value,website:document.getElementById('hWb').value,currencyCode:document.getElementById('hCur').value,starRating:parseInt(document.getElementById('hSr').value),taxPercent:parseFloat(document.getElementById('hTx').value),checkInTime:document.getElementById('hCI').value,checkOutTime:document.getElementById('hCO').value,cancellationPolicyHours:parseInt(document.getElementById('hCP').value),lateCancelChargePercent:parseFloat(document.getElementById('hCC').value),description:document.getElementById('hDesc').value,isActive:true});
+  if(d?.success){showAlert('hotelAlert','✅ Hotel profile saved','alert-ok');loadHotelBranding();}
+  else showAlert('hotelAlert',d?.message||'Save failed','alert-err');
+}
+
+async function saveSetting(key){
+  const val=document.getElementById(`sv_${key}`).value;
+  const d=await api('POST',`/settings/${key}`,{value:val});
+  if(d?.success){
+    const el=document.getElementById(`sv_${key}`);
+    el.style.background='#d1fae5';
+    setTimeout(()=>el.style.background='',1500);
+    // Refresh sidebar branding in case a hotel.name or hotel.city setting changed
+    loadHotelBranding();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// OMS — ORDER MANAGEMENT
+// ═══════════════════════════════════════════════════════════════
+
+// ── Helpers ──────────────────────────────────────────────────
+const CAT_LABELS = {RoomService:'🍽️ Room Service',Restaurant:'🍴 Restaurant',Laundry:'👕 Laundry',MiniBar:'🍺 Mini-Bar',ServiceRequest:'🛎️ Service',AddOn:'➕ Add-On'};
+const CAT_CLS    = {RoomService:'cat-rs',Restaurant:'cat-rest',Laundry:'cat-lau',MiniBar:'cat-mb',ServiceRequest:'cat-svc',AddOn:'cat-add'};
+
+function catPill(c){return `<span class="cat-pill ${CAT_CLS[c]||''}">${CAT_LABELS[c]||c}</span>`;}
+
+function orderStatusBadge(s){
+  const m={Pending:'b-warn',Confirmed:'b-info',InProgress:'b-info',Delivered:'b-ok',Billed:'b-purple',Cancelled:'b-err'};
+  return `<span class="badge ${m[s]||'b-gray'}">${s}</span>`;
+}
+
+function priDot(p){return `<span class="pri-dot pri-${p}"></span>${p}`;}
+
+// ── pgOrders — Order Management Page ─────────────────────────
+async function pgOrders(){
+  document.getElementById('pageContent').innerHTML=`
+  <div id="omsStatsBar" class="oms-stats">
+    <div style="text-align:center;padding:1rem;grid-column:1/-1"><span class="spin"></span> Loading stats...</div>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">🧾 Orders</span>
+      <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+        <select id="oFilterCat" onchange="reloadOrders()" style="padding:.35rem .6rem;border:1px solid var(--bdr);border-radius:5px;font-size:.8rem;background:#fff">
+          <option value="">All Categories</option>
+          <option value="RoomService">Room Service</option>
+          <option value="Restaurant">Restaurant</option>
+          <option value="Laundry">Laundry</option>
+          <option value="MiniBar">Mini-Bar</option>
+          <option value="ServiceRequest">Service Request</option>
+          <option value="AddOn">Add-On</option>
+        </select>
+        <select id="oFilterStat" onchange="reloadOrders()" style="padding:.35rem .6rem;border:1px solid var(--bdr);border-radius:5px;font-size:.8rem;background:#fff">
+          <option value="">All Status</option>
+          <option value="Pending">Pending</option>
+          <option value="Confirmed">Confirmed</option>
+          <option value="InProgress">In Progress</option>
+          <option value="Delivered">Delivered</option>
+          <option value="Billed">Billed</option>
+          <option value="Cancelled">Cancelled</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" onclick="toggleOmsView()">🔀 Toggle View</button>
+        <button class="btn btn-p btn-sm" onclick="showCreateOrderModal()">+ New Order</button>
+      </div>
+    </div>
+    <div id="omsView" style="padding:1rem"></div>
+  </div>`;
+  loadOrderStats();
+  reloadOrders();
+}
+
+let omsViewMode = 'list'; // 'kanban' or 'list'
+function toggleOmsView(){
+  omsViewMode = omsViewMode==='list'?'kanban':'list';
+  reloadOrders();
+}
+
+async function loadOrderStats(){
+  const d = await api('GET','/orders/stats');
+  const s = d?.data||{};
+  document.getElementById('omsStatsBar').innerHTML=`
+    <div class="oms-stat"><div class="oms-stat-val" style="color:var(--warn)">${s.pendingOrders||0}</div><div class="oms-stat-lbl">Pending</div></div>
+    <div class="oms-stat"><div class="oms-stat-val" style="color:var(--info)">${s.inProgressOrders||0}</div><div class="oms-stat-lbl">In Progress</div></div>
+    <div class="oms-stat"><div class="oms-stat-val" style="color:var(--ok)">${s.deliveredOrders||0}</div><div class="oms-stat-lbl">Delivered</div></div>
+    <div class="oms-stat"><div class="oms-stat-val" style="color:var(--p)">${s.billedOrders||0}</div><div class="oms-stat-lbl">Billed</div></div>
+    <div class="oms-stat"><div class="oms-stat-val" style="color:var(--err)">${s.cancelledOrders||0}</div><div class="oms-stat-lbl">Cancelled</div></div>
+    <div class="oms-stat"><div class="oms-stat-val" style="color:var(--ok);font-size:1.1rem">${fmtMoney(s.totalRevenue||0)}</div><div class="oms-stat-lbl">Total Revenue</div></div>
+    <div class="oms-stat"><div class="oms-stat-val" style="color:var(--err);font-size:1.1rem">${fmtMoney(s.unbilledAmount||0)}</div><div class="oms-stat-lbl">Unbilled</div></div>`;
+}
+
+async function reloadOrders(){
+  const cat  = document.getElementById('oFilterCat')?.value||'';
+  const stat = document.getElementById('oFilterStat')?.value||'';
+  const d = await api('GET',`/orders?category=${cat}&status=${stat}&pageSize=100`);
+  const orders = Array.isArray(d?.data)?d.data:[];
+  const el = document.getElementById('omsView');
+  if(!el) return;
+
+  if(omsViewMode==='kanban'){
+    const cols = ['Pending','Confirmed','InProgress','Delivered','Billed','Cancelled'];
+    el.innerHTML=`<div class="oms-board">${cols.map(col=>{
+      const colOrders = orders.filter(o=>o.orderStatus===col);
+      return `<div class="oms-col">
+        <div class="oms-col-hdr">${col} <span class="oms-col-cnt">${colOrders.length}</span></div>
+        ${colOrders.map(o=>orderCard(o)).join('')}
+        ${colOrders.length===0?`<div style="color:var(--txt2);font-size:.78rem;text-align:center;padding:1rem">No orders</div>`:''}
+      </div>`;
+    }).join('')}</div>`;
+  } else {
+    el.innerHTML=`<div style="overflow-x:auto"><table>
+      <thead><tr><th>#</th><th>Category</th><th>Guest / Room</th><th>Items</th><th>Total</th><th>Priority</th><th>Status</th><th>Time</th><th>Actions</th></tr></thead>
+      <tbody>${orders.length===0?`<tr><td colspan="9" class="empty-state">No orders found.</td></tr>`:
+        orders.map(o=>`<tr>
+          <td><code style="color:var(--p);font-size:.78rem">${o.orderNumber}</code></td>
+          <td>${catPill(o.category)}</td>
+          <td><strong>${o.guestName||'—'}</strong><br><small style="color:var(--txt2)">Rm ${o.roomNumber||'—'}</small></td>
+          <td style="color:var(--txt2);font-size:.78rem">${o.bookingReference||''}</td>
+          <td><strong>${fmtMoney(o.grandTotal)}</strong></td>
+          <td><span style="font-size:.78rem">${priDot(o.priority||'Normal')}</span></td>
+          <td>${orderStatusBadge(o.orderStatus)}</td>
+          <td style="font-size:.75rem;color:var(--txt2)">${fmt(o.orderDate||o.createdAt)}</td>
+          <td><div style="display:flex;gap:.3rem;flex-wrap:wrap">
+            <button class="btn btn-ghost btn-sm" onclick="viewOrder(${o.orderId})">👁</button>
+            ${o.orderStatus==='Pending'?`<button class="btn btn-ok btn-sm" onclick="updateOrderStatus(${o.orderId},'Confirmed')">Confirm</button>`:''}
+            ${o.orderStatus==='Confirmed'?`<button class="btn btn-info btn-sm" onclick="updateOrderStatus(${o.orderId},'InProgress')">Start</button>`:''}
+            ${o.orderStatus==='InProgress'?`<button class="btn btn-ok btn-sm" onclick="updateOrderStatus(${o.orderId},'Delivered')">Deliver</button>`:''}
+            ${o.orderStatus==='Delivered'?`<button class="btn btn-acc btn-sm" onclick="billOrder(${o.orderId})">Bill</button>`:''}
+            ${['Pending','Confirmed'].includes(o.orderStatus)?`<button class="btn btn-err btn-sm" onclick="updateOrderStatus(${o.orderId},'Cancelled')">✕</button>`:''}
+          </div></td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>`;
+  }
+}
+
+function orderCard(o){
+  return `<div class="order-card pri-${o.priority||'Normal'}" onclick="viewOrder(${o.orderId})">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <span class="oc-num">${o.orderNumber}</span>${catPill(o.category)}
+    </div>
+    <div class="oc-guest">${o.guestName||'—'}</div>
+    <div class="oc-room">Rm ${o.roomNumber||'—'} · ${o.bookingReference||''}</div>
+    <div class="oc-total">${fmtMoney(o.grandTotal)}</div>
+    <div class="oc-time">${fmt(o.orderDate||o.createdAt)}</div>
+  </div>`;
+}
+
+async function viewOrder(orderId){
+  const d = await api('GET',`/orders/${orderId}`);
+  if(!d?.success){alert('Order not found');return;}
+  const {order:o, items, history} = d.data;
+  showGModal(`
+  <h3>Order — ${o.orderNumber}</h3>
+  <div class="odet-meta">
+    <div class="odet-kv"><span class="odet-k">Status</span><span class="odet-v">${orderStatusBadge(o.orderStatus)}</span></div>
+    <div class="odet-kv"><span class="odet-k">Category</span><span class="odet-v">${catPill(o.category)}</span></div>
+    <div class="odet-kv"><span class="odet-k">Priority</span><span class="odet-v">${priDot(o.priority||'Normal')}</span></div>
+    <div class="odet-kv"><span class="odet-k">Guest</span><span class="odet-v">${o.guestName||'—'}</span></div>
+    <div class="odet-kv"><span class="odet-k">Room</span><span class="odet-v">${o.roomNumber||'—'} · ${o.roomTypeName||''}</span></div>
+    <div class="odet-kv"><span class="odet-k">Booking</span><span class="odet-v">${o.bookingReference||'—'}</span></div>
+    <div class="odet-kv"><span class="odet-k">Grand Total</span><span class="odet-v" style="color:var(--p)">${fmtMoney(o.grandTotal)}</span></div>
+    <div class="odet-kv"><span class="odet-k">Tax</span><span class="odet-v">${fmtMoney(o.taxAmount)}</span></div>
+    <div class="odet-kv"><span class="odet-k">Created</span><span class="odet-v">${fmt(o.orderDate||o.createdAt)}</span></div>
+    ${o.specialInstructions?`<div class="odet-kv" style="grid-column:1/-1"><span class="odet-k">Instructions</span><span class="odet-v">${o.specialInstructions}</span></div>`:''}
+  </div>
+
+  <div style="font-size:.78rem;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:.5rem">Items</div>
+  <div style="overflow-x:auto;margin-bottom:1rem"><table>
+    <thead><tr><th>Item</th><th>Qty</th><th>Unit Price</th><th>Tax</th><th>Total</th></tr></thead>
+    <tbody>${(items||[]).map(i=>`<tr>
+      <td><strong>${i.itemName}</strong>${i.notes?`<br><small style="color:var(--txt2)">${i.notes}</small>`:''}</td>
+      <td>${i.quantity}</td>
+      <td>${fmtMoney(i.unitPrice)}</td>
+      <td>${fmtMoney(i.taxAmount)}</td>
+      <td><strong>${fmtMoney(i.lineTotalWithTax)}</strong></td>
+    </tr>`).join('')}
+    <tr style="background:#f8fafc;font-weight:700"><td colspan="4" style="text-align:right">Grand Total</td><td>${fmtMoney(o.grandTotal)}</td></tr>
+    </tbody>
+  </table></div>
+
+  <div style="font-size:.78rem;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:.5rem">Status History</div>
+  <div class="timeline">${(history||[]).map((h,i)=>`
+    <div class="tl-item">
+      <div class="tl-dot"></div>${i<history.length-1?'<div class="tl-line"></div>':''}
+      <div>
+        <div class="tl-status">${h.oldStatus?`${h.oldStatus} → `:''}${h.newStatus}</div>
+        ${h.notes?`<div class="tl-note">${h.notes}</div>`:''}
+        <div class="tl-time">${h.changedByName||'System'} · ${fmt(h.changedAt)}</div>
+      </div>
+    </div>`).join('')}</div>
+
+  <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:1rem;border-top:1px solid var(--bdr);padding-top:1rem">
+    ${o.orderStatus==='Pending'?`<button class="btn btn-ok btn-sm" onclick="updateOrderStatus(${o.orderId},'Confirmed');closeGModal()">✓ Confirm</button>`:''}
+    ${o.orderStatus==='Confirmed'?`<button class="btn btn-info btn-sm" onclick="updateOrderStatus(${o.orderId},'InProgress');closeGModal()">▶ Start</button>`:''}
+    ${o.orderStatus==='InProgress'?`<button class="btn btn-ok btn-sm" onclick="updateOrderStatus(${o.orderId},'Delivered');closeGModal()">✓ Delivered</button>`:''}
+    ${o.orderStatus==='Delivered'?`<button class="btn btn-acc btn-sm" onclick="billOrder(${o.orderId});closeGModal()">💳 Bill to Folio</button>`:''}
+    ${['Pending','Confirmed'].includes(o.orderStatus)?`<button class="btn btn-err btn-sm" onclick="updateOrderStatus(${o.orderId},'Cancelled');closeGModal()">✕ Cancel</button>`:''}
+  </div>`, 680);
+}
+
+async function updateOrderStatus(orderId, status){
+  const notes = status==='Cancelled' ? prompt('Reason for cancellation (optional):') : null;
+  if(status==='Cancelled' && notes===null) return;
+  const d = await api('PATCH',`/orders/${orderId}/status`,{status, notes:notes||''});
+  if(d?.success){reloadOrders();loadOrderStats();}
+  else alert(d?.message||'Status update failed');
+}
+
+async function billOrder(orderId){
+  if(!confirm('Post this order to guest folio?')) return;
+  const d = await api('POST',`/orders/${orderId}/bill`);
+  if(d?.success){alert('✅ Order billed to folio');reloadOrders();loadOrderStats();}
+  else alert(d?.message||'Billing failed');
+}
+
+// ── Create Order Modal ────────────────────────────────────────
+let _newOrderItems = [];
+let _catalogCache  = [];
+
+async function showCreateOrderModal(){
+  const bkRes = await api('GET','/bookings?status=CheckedIn&size=100');
+  const bookings = Array.isArray(bkRes?.data)?bkRes.data:[];
+  showGModal(`
+  <h3>+ New Order</h3>
+  <div class="fgrid">
+    <div class="fg full"><label>Active Booking (Checked-In) *</label>
+      <select id="noBooking" onchange="loadBookingRoom()">
+        <option value="">— Select Booking —</option>
+        ${bookings.map(b=>`<option value="${b.bookingId}" data-room="${b.roomId||''}">${b.bookingReference} · ${b.guestName} · Rm ${b.roomNumber||'—'}</option>`).join('')}
+      </select>
+    </div>
+    <input type="hidden" id="noRoomId" value="">
+    <input type="hidden" id="noCustId" value="">
+    <div class="fg"><label>Category *</label>
+      <select id="noCategory" onchange="loadCatalogPicker()">
+        <option value="">— Select —</option>
+        <option value="RoomService">Room Service</option>
+        <option value="Restaurant">Restaurant</option>
+        <option value="Laundry">Laundry</option>
+        <option value="MiniBar">Mini-Bar</option>
+        <option value="ServiceRequest">Service Request</option>
+        <option value="AddOn">Add-On</option>
+      </select>
+    </div>
+    <div class="fg"><label>Priority</label>
+      <select id="noPriority">
+        <option value="Normal">Normal</option>
+        <option value="High">High</option>
+        <option value="Urgent">Urgent</option>
+      </select>
+    </div>
+    <div class="fg full"><label>Special Instructions</label><textarea id="noInstr" rows="2" placeholder="e.g. No onions, extra towels..."></textarea></div>
+  </div>
+
+  <div style="font-size:.78rem;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin:.9rem 0 .4rem">Catalog Items</div>
+  <div id="noCatalogPicker" style="color:var(--txt2);font-size:.82rem;padding:.5rem">Select a category above to browse items.</div>
+
+  <div style="font-size:.78rem;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin:.9rem 0 .4rem">Selected Items <span id="noItemCount" style="color:var(--p)"></span></div>
+  <div id="noItemsList" style="font-size:.82rem;color:var(--txt2);margin-bottom:.5rem">No items added yet.</div>
+  <div id="noSummary"></div>
+  <div id="noAlert"></div>
+  <button class="btn btn-p" style="width:100%;margin-top:.8rem" onclick="submitNewOrder()">✓ Create Order</button>`, 700);
+  _newOrderItems = [];
+}
+
+function loadBookingRoom(){
+  const sel = document.getElementById('noBooking');
+  const opt = sel.options[sel.selectedIndex];
+  document.getElementById('noRoomId').value = opt.dataset.room||'';
+  // Fetch full booking to get customerId
+  const bookingId = parseInt(sel.value)||0;
+  if(bookingId) api('GET',`/bookings/${bookingId}`).then(d=>{
+    if(d?.data?.customerId) document.getElementById('noCustId').value = d.data.customerId;
+  });
+}
+
+async function loadCatalogPicker(){
+  const cat = document.getElementById('noCategory').value;
+  if(!cat) return;
+  const el = document.getElementById('noCatalogPicker');
+  el.innerHTML='<span class="spin"></span> Loading catalog...';
+  if(!_catalogCache.length){
+    const d = await api('GET','/orders/catalog/all');
+    _catalogCache = Array.isArray(d?.data)?d.data:[];
+  }
+  const filtered = _catalogCache.filter(i=>i.category===cat && i.isAvailable);
+  if(!filtered.length){el.innerHTML='<div style="color:var(--txt2);padding:.5rem">No items in this category.</div>';return;}
+  el.innerHTML=`<div class="cat-picker">${filtered.map(i=>`
+    <div class="cp-item" onclick="addCatalogItem(${i.catalogId})">
+      <div>
+        <div class="cp-name">${i.itemName}</div>
+        ${i.description?`<div style="font-size:.72rem;color:var(--txt2)">${i.description}</div>`:''}
+        <div style="font-size:.7rem;color:var(--txt2)">${i.unit} · Tax ${i.taxPercent}%</div>
+      </div>
+      <div class="cp-price">${fmtMoney(i.unitPrice)}</div>
+    </div>`).join('')}
+  </div>`;
+}
+
+function addCatalogItem(catalogId){
+  const item = _catalogCache.find(i=>i.catalogId===catalogId);
+  if(!item) return;
+  const existing = _newOrderItems.find(i=>i.catalogId===catalogId);
+  if(existing){ existing.quantity++; }
+  else { _newOrderItems.push({catalogId:item.catalogId,itemName:item.itemName,description:item.description||'',quantity:1,unitPrice:item.unitPrice,taxPercent:item.taxPercent,notes:''}); }
+  renderOrderItems();
+}
+
+function renderOrderItems(){
+  const el = document.getElementById('noItemsList');
+  const sumEl = document.getElementById('noSummary');
+  const cntEl = document.getElementById('noItemCount');
+  if(!_newOrderItems.length){
+    el.innerHTML='<div style="color:var(--txt2);font-size:.82rem">No items added yet.</div>';
+    sumEl.innerHTML=''; cntEl.textContent=''; return;
+  }
+  cntEl.textContent = `(${_newOrderItems.length})`;
+  let sub=0;
+  el.innerHTML=`<div style="overflow-x:auto"><table><thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Tax</th><th>Line Total</th><th></th></tr></thead><tbody>
+    ${_newOrderItems.map((it,idx)=>{
+      const lineAmt = it.quantity * it.unitPrice;
+      const taxAmt  = lineAmt * it.taxPercent / 100;
+      const lineTotal = lineAmt + taxAmt;
+      sub += lineTotal;
+      return `<tr>
+        <td><strong>${it.itemName}</strong></td>
+        <td><div class="stepper">
+          <button onclick="changeQty(${idx},-1)">−</button>
+          <input type="number" value="${it.quantity}" min="1" onchange="setQty(${idx},this.value)">
+          <button onclick="changeQty(${idx},1)">+</button>
+        </div></td>
+        <td>${fmtMoney(it.unitPrice)}</td>
+        <td style="color:var(--txt2)">${fmtMoney(taxAmt)}</td>
+        <td><strong>${fmtMoney(lineTotal)}</strong></td>
+        <td><button class="btn btn-err btn-sm" onclick="removeOrderItem(${idx})">✕</button></td>
+      </tr>`;
+    }).join('')}
+  </tbody></table></div>`;
+  sumEl.innerHTML=`<div style="text-align:right;font-size:.88rem;font-weight:700;color:var(--p);margin-top:.5rem;padding-top:.5rem;border-top:1px solid var(--bdr)">Total: ${fmtMoney(sub)}</div>`;
+}
+
+function changeQty(idx,delta){_newOrderItems[idx].quantity=Math.max(1,(_newOrderItems[idx].quantity||1)+delta);renderOrderItems();}
+function setQty(idx,val){_newOrderItems[idx].quantity=Math.max(1,parseInt(val)||1);renderOrderItems();}
+function removeOrderItem(idx){_newOrderItems.splice(idx,1);renderOrderItems();}
+
+async function submitNewOrder(){
+  const bookingId = parseInt(document.getElementById('noBooking').value)||0;
+  const roomId    = parseInt(document.getElementById('noRoomId').value)||0;
+  const custId    = parseInt(document.getElementById('noCustId').value)||0;
+  const category  = document.getElementById('noCategory').value;
+  if(!bookingId){showAlert('noAlert','Please select a booking','alert-err');return;}
+  if(!roomId){showAlert('noAlert','Selected booking has no room assigned','alert-err');return;}
+  if(!category){showAlert('noAlert','Please select a category','alert-err');return;}
+  if(!_newOrderItems.length){showAlert('noAlert','Please add at least one item','alert-err');return;}
+  const payload = {
+    bookingId, roomId, customerId:custId, category,
+    priority: document.getElementById('noPriority').value,
+    specialInstructions: document.getElementById('noInstr').value,
+    items: _newOrderItems
+  };
+  const d = await api('POST','/orders',payload);
+  if(d?.success){
+    alert(`✅ Order ${d.data?.orderNumber||''} created`);
+    closeGModal(); reloadOrders(); loadOrderStats();
+  } else showAlert('noAlert',d?.message||'Failed to create order','alert-err');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// OMS — GUEST FOLIO
+// ═══════════════════════════════════════════════════════════════
+
+async function pgFolio(){
+  document.getElementById('pageContent').innerHTML=`
+  <div class="card card-pad">
+    <div class="card-title" style="margin-bottom:1rem">📒 Guest Folio</div>
+    <div style="display:flex;gap:.7rem;align-items:flex-end;margin-bottom:1.2rem">
+      <div class="fg" style="flex:1"><label>Search by Booking ID or Reference</label>
+        <input id="folioSearch" placeholder="e.g. 42 or HTL-2024-00001" onkeydown="if(event.key==='Enter')loadFolio()">
+      </div>
+      <button class="btn btn-p" onclick="loadFolio()">🔍 Load Folio</button>
+    </div>
+    <div id="folioContent" style="color:var(--txt2);text-align:center;padding:2rem;font-size:.88rem">Enter a booking ID or reference to load the guest folio.</div>
+  </div>`;
+}
+
+async function loadFolio(){
+  const q = document.getElementById('folioSearch').value.trim();
+  if(!q) return;
+  const el = document.getElementById('folioContent');
+  el.innerHTML='<span class="spin"></span> Loading...';
+
+  // Try numeric (BookingId) or reference string
+  let bookingId = parseInt(q)||0;
+  if(!bookingId){
+    const bRes = await api('GET',`/bookings/reference/${encodeURIComponent(q.toUpperCase())}`);
+    bookingId = bRes?.data?.bookingId||0;
+  }
+  if(!bookingId){el.innerHTML='<div class="alert alert-err">Booking not found.</div>';return;}
+
+  const [folioRes, bkRes] = await Promise.all([
+    api('GET',`/orders/folio/${bookingId}`),
+    api('GET',`/bookings/${bookingId}`)
+  ]);
+  const entries = Array.isArray(folioRes?.data?.entries)?folioRes.data.entries:[];
+  const invoice = folioRes?.data?.invoice||null;
+  const booking = bkRes?.data||{};
+
+  el.innerHTML=`
+  <div style="margin-bottom:1rem;padding:.8rem;background:#f8fafc;border-radius:6px;display:flex;gap:1.5rem;flex-wrap:wrap">
+    <div><span style="font-size:.7rem;color:var(--txt2);text-transform:uppercase">Booking</span><br><strong>${booking.bookingReference||'—'}</strong></div>
+    <div><span style="font-size:.7rem;color:var(--txt2);text-transform:uppercase">Guest</span><br><strong>${booking.guestName||'—'}</strong></div>
+    <div><span style="font-size:.7rem;color:var(--txt2);text-transform:uppercase">Room</span><br><strong>${booking.roomNumber||'—'}</strong></div>
+    <div><span style="font-size:.7rem;color:var(--txt2);text-transform:uppercase">Status</span><br>${statusBadge(booking.bookingStatus||'')}</div>
+    <div><span style="font-size:.7rem;color:var(--txt2);text-transform:uppercase">Check-In</span><br>${fmt(booking.checkInDate)}</div>
+    <div><span style="font-size:.7rem;color:var(--txt2);text-transform:uppercase">Check-Out</span><br>${fmt(booking.checkOutDate)}</div>
+  </div>
+
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.7rem">
+    <div style="font-size:.82rem;font-weight:700;color:var(--p)">Folio Entries (${entries.length})</div>
+    <div style="display:flex;gap:.5rem">
+      <button class="btn btn-ghost btn-sm" onclick="showManualChargeModal(${bookingId})">+ Manual Charge</button>
+      <button class="btn btn-p btn-sm" onclick="generateInvoice(${bookingId})">🧾 Generate Invoice</button>
+    </div>
+  </div>
+
+  <div style="overflow-x:auto;margin-bottom:1.2rem"><table>
+    <thead><tr><th>Type</th><th>Description</th><th>Amount</th><th>Tax</th><th>Total</th><th>Posted</th><th></th></tr></thead>
+    <tbody>${entries.length===0?`<tr><td colspan="7" class="empty-state">No entries yet.</td></tr>`:
+      entries.map(e=>`<tr class="${e.isVoided?'folio-voided':''}">
+        <td><span class="badge ${e.entryType==='RoomCharge'?'b-info':e.entryType==='Payment'||e.entryType==='CreditAdjustment'?'b-ok':'b-warn'}">${e.entryType}</span></td>
+        <td>${e.description}</td>
+        <td class="${e.entryType==='Payment'||e.entryType==='CreditAdjustment'?'folio-credit':'folio-charge'}">${fmtMoney(e.amount)}</td>
+        <td style="color:var(--txt2)">${fmtMoney(e.taxAmount)}</td>
+        <td><strong class="${e.entryType==='Payment'||e.entryType==='CreditAdjustment'?'folio-credit':'folio-charge'}">${fmtMoney(e.grandAmount)}</strong></td>
+        <td style="font-size:.75rem;color:var(--txt2)">${fmt(e.postedAt)}</td>
+        <td>${!e.isVoided?`<button class="btn btn-err btn-sm" onclick="voidEntry(${e.billEntryId},${bookingId})">Void</button>`:'<span style="font-size:.72rem;color:var(--txt2)">Voided</span>'}</td>
+      </tr>`).join('')}
+    </tbody>
+  </table></div>
+
+  ${invoice?`<div style="background:linear-gradient(135deg,var(--p) 0%,var(--p2) 100%);color:#fff;border-radius:8px;padding:1.2rem;margin-bottom:1rem">
+    <div style="font-size:1rem;font-weight:700;margin-bottom:.8rem">🧾 Invoice ${invoice.invoiceNumber}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.8rem">
+      <div><div style="font-size:.68rem;opacity:.7;text-transform:uppercase">Room Charges</div><div style="font-size:1rem;font-weight:700">${fmtMoney(invoice.roomCharges)}</div></div>
+      <div><div style="font-size:.68rem;opacity:.7;text-transform:uppercase">Service Charges</div><div style="font-size:1rem;font-weight:700">${fmtMoney(invoice.serviceCharges)}</div></div>
+      <div><div style="font-size:.68rem;opacity:.7;text-transform:uppercase">Tax Total</div><div style="font-size:1rem;font-weight:700">${fmtMoney(invoice.taxTotal)}</div></div>
+      <div><div style="font-size:.68rem;opacity:.7;text-transform:uppercase">Discounts</div><div style="font-size:1rem;font-weight:700">−${fmtMoney(invoice.discountTotal)}</div></div>
+      <div><div style="font-size:.68rem;opacity:.7;text-transform:uppercase">Grand Total</div><div style="font-size:1.2rem;font-weight:800">${fmtMoney(invoice.grandTotal)}</div></div>
+      <div><div style="font-size:.68rem;opacity:.7;text-transform:uppercase">Amount Paid</div><div style="font-size:1rem;font-weight:700">${fmtMoney(invoice.amountPaid)}</div></div>
+      <div><div style="font-size:.68rem;opacity:.7;text-transform:uppercase">Balance Due</div><div style="font-size:1.2rem;font-weight:800;color:${invoice.balanceDue>0?'#fca5a5':'#6ee7b7'}">${fmtMoney(invoice.balanceDue)}</div></div>
+    </div>
+  </div>`:`<div style="text-align:center;padding:.8rem;background:#f8fafc;border-radius:6px;color:var(--txt2);font-size:.82rem">No invoice generated yet. <button class="btn btn-p btn-sm" style="margin-left:.5rem" onclick="generateInvoice(${bookingId})">Generate Now</button></div>`}`;
+}
+
+function showManualChargeModal(bookingId){
+  showGModal(`
+  <h3>+ Manual Charge / Credit</h3>
+  <div class="fgrid">
+    <div class="fg"><label>Entry Type *</label>
+      <select id="mcType">
+        <option value="ManualCharge">Manual Charge</option>
+        <option value="CreditAdjustment">Credit Adjustment</option>
+        <option value="LaundryCharge">Laundry Charge</option>
+        <option value="MiniBarCharge">Mini-Bar Charge</option>
+        <option value="TransportCharge">Transport Charge</option>
+        <option value="MiscCharge">Misc. Charge</option>
+        <option value="Payment">Payment</option>
+      </select>
+    </div>
+    <div class="fg"><label>Amount (₹) *</label><input type="number" id="mcAmt" placeholder="0.00" min="0.01" step="0.01"></div>
+    <div class="fg"><label>Tax Amount (₹)</label><input type="number" id="mcTax" placeholder="0.00" step="0.01" value="0"></div>
+    <div class="fg full"><label>Description *</label><input id="mcDesc" placeholder="e.g. Extra pillow, laundry service..."></div>
+  </div>
+  <div id="mcAlert"></div>
+  <button class="btn btn-p" style="width:100%;margin-top:.8rem" onclick="submitManualCharge(${bookingId})">✓ Post to Folio</button>`);
+}
+
+async function submitManualCharge(bookingId){
+  const amt  = parseFloat(document.getElementById('mcAmt').value)||0;
+  const tax  = parseFloat(document.getElementById('mcTax').value)||0;
+  const desc = document.getElementById('mcDesc').value.trim();
+  const type = document.getElementById('mcType').value;
+  if(amt<=0){showAlert('mcAlert','Please enter a valid amount','alert-err');return;}
+  if(!desc){showAlert('mcAlert','Description is required','alert-err');return;}
+  const d = await api('POST','/orders/folio/manual',{bookingId,entryType:type,description:desc,amount:amt,taxAmount:tax});
+  if(d?.success){alert('✅ Entry posted to folio');closeGModal();loadFolio();}
+  else showAlert('mcAlert',d?.message||'Failed','alert-err');
+}
+
+async function voidEntry(entryId, bookingId){
+  const reason = prompt('Reason for voiding this entry:');
+  if(reason===null) return;
+  const d = await api('POST',`/orders/folio/${entryId}/void`,{reason});
+  if(d?.success){alert('✅ Entry voided');loadFolio();}
+  else alert(d?.message||'Void failed');
+}
+
+async function generateInvoice(bookingId){
+  const d = await api('POST',`/orders/invoice/generate/${bookingId}`);
+  if(d?.success){alert('✅ Invoice generated');loadFolio();}
+  else alert(d?.message||'Failed to generate invoice');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// OMS — ORDER CATALOG
+// ═══════════════════════════════════════════════════════════════
+
+let _editingCatalogId = null;
+
+async function pgCatalog(){
+  document.getElementById('pageContent').innerHTML=`
+  <div style="display:grid;grid-template-columns:1fr 340px;gap:1.2rem;">
+  <div>
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">🗂️ Order Catalog</span>
+      <div style="display:flex;gap:.5rem;align-items:center">
+        <select id="catFilter" onchange="loadCatalogPage()" style="padding:.35rem .6rem;border:1px solid var(--bdr);border-radius:5px;font-size:.8rem;background:#fff">
+          <option value="">All Categories</option>
+          <option value="RoomService">Room Service</option>
+          <option value="Restaurant">Restaurant</option>
+          <option value="Laundry">Laundry</option>
+          <option value="MiniBar">Mini-Bar</option>
+          <option value="ServiceRequest">Service Request</option>
+          <option value="AddOn">Add-On</option>
+        </select>
+        <button class="btn btn-p btn-sm" onclick="showAddCatalogItem()">+ Add Item</button>
+      </div>
+    </div>
+    <div class="card-pad" id="catalogGrid"><div style="text-align:center;padding:2rem"><span class="spin"></span></div></div>
+  </div>
+  </div>
+  <div>
+  <div class="card card-pad" id="catalogFormCard">
+    <div class="card-title" style="margin-bottom:1rem">➕ Add / Edit Item</div>
+    <div id="catalogFormArea" style="color:var(--txt2);font-size:.85rem;text-align:center;padding:1rem">Click "+ Add Item" or a catalog item's Edit button to begin.</div>
+  </div>
+  </div>
+  </div>`;
+  loadCatalogPage();
+}
+
+async function loadCatalogPage(){
+  const cat = document.getElementById('catFilter')?.value||'';
+  const d   = await api('GET',`/orders/catalog/all`);
+  let items = Array.isArray(d?.data)?d.data:[];
+  if(cat) items = items.filter(i=>i.category===cat);
+
+  // Group by category
+  const groups = {};
+  items.forEach(i=>{if(!groups[i.category])groups[i.category]=[];groups[i.category].push(i);});
+
+  const el = document.getElementById('catalogGrid');
+  if(!el) return;
+  if(!items.length){el.innerHTML='<div class="empty-state">No catalog items found.</div>';return;}
+
+  el.innerHTML = Object.entries(groups).map(([cat,citems])=>`
+    <div style="margin-bottom:1.2rem">
+      <div style="margin-bottom:.6rem">${catPill(cat)}</div>
+      <div class="catalog-grid">
+        ${citems.map(i=>`
+        <div class="cat-card">
+          <div class="cat-card-hdr">
+            <span class="cat-item-name">${i.itemName}</span>
+            <span class="cat-item-price">${fmtMoney(i.unitPrice)}</span>
+          </div>
+          ${i.description?`<div class="cat-item-desc">${i.description}</div>`:''}
+          <div class="cat-item-meta">
+            <span class="badge b-gray" style="font-size:.65rem">${i.unit}</span>
+            <span class="badge b-info" style="font-size:.65rem">Tax ${i.taxPercent}%</span>
+            <span class="badge ${i.isAvailable?'b-ok':'b-err'}" style="font-size:.65rem">${i.isAvailable?'Available':'Unavailable'}</span>
+          </div>
+          <div style="display:flex;gap:.4rem;margin-top:.7rem">
+            <button class="btn btn-ghost btn-sm" onclick="editCatalogItem(${i.catalogId})">✏️ Edit</button>
+            <button class="btn btn-err btn-sm" onclick="deleteCatalogItem(${i.catalogId})">🗑</button>
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function showAddCatalogItem(){
+  _editingCatalogId = null;
+  renderCatalogForm(null);
+}
+
+async function editCatalogItem(id){
+  const d = await api('GET','/orders/catalog/all');
+  const all = Array.isArray(d?.data)?d.data:[];
+  const item = all.find(i=>i.catalogId===id)||null;
+  _editingCatalogId = id;
+  renderCatalogForm(item);
+}
+
+function renderCatalogForm(item){
+  const el = document.getElementById('catalogFormArea');
+  if(!el) return;
+  el.innerHTML=`
+  <div class="fg"><label>Category *</label>
+    <select id="cfCat">
+      <option value="RoomService" ${item?.category==='RoomService'?'selected':''}>Room Service</option>
+      <option value="Restaurant"  ${item?.category==='Restaurant'?'selected':''}>Restaurant</option>
+      <option value="Laundry"     ${item?.category==='Laundry'?'selected':''}>Laundry</option>
+      <option value="MiniBar"     ${item?.category==='MiniBar'?'selected':''}>Mini-Bar</option>
+      <option value="ServiceRequest" ${item?.category==='ServiceRequest'?'selected':''}>Service Request</option>
+      <option value="AddOn"       ${item?.category==='AddOn'?'selected':''}>Add-On</option>
+    </select>
+  </div>
+  <div class="fg" style="margin-top:.5rem"><label>Item Name *</label><input id="cfName" value="${item?.itemName||''}" placeholder="e.g. Masala Chai"></div>
+  <div class="fg" style="margin-top:.5rem"><label>Description</label><textarea id="cfDesc" rows="2">${item?.description||''}</textarea></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:.5rem">
+    <div class="fg"><label>Unit Price (₹) *</label><input type="number" id="cfPrice" value="${item?.unitPrice||''}" step="0.01" placeholder="0.00"></div>
+    <div class="fg"><label>Unit</label><input id="cfUnit" value="${item?.unit||'per item'}" placeholder="per item"></div>
+    <div class="fg"><label>Tax %</label><input type="number" id="cfTax" value="${item?.taxPercent||0}" step="0.5" placeholder="0"></div>
+    <div class="fg"><label>Sort Order</label><input type="number" id="cfSort" value="${item?.sortOrder||0}"></div>
+  </div>
+  <div class="fg" style="margin-top:.5rem"><label>Available?</label>
+    <select id="cfAvail">
+      <option value="true"  ${item?.isAvailable!==false?'selected':''}>Yes — show in orders</option>
+      <option value="false" ${item?.isAvailable===false?'selected':''}>No — hidden</option>
+    </select>
+  </div>
+  <div id="cfAlert"></div>
+  <button class="btn btn-p" style="width:100%;margin-top:1rem" onclick="saveCatalogItem()">${_editingCatalogId?'💾 Update Item':'✓ Add Item'}</button>
+  ${_editingCatalogId?`<button class="btn btn-ghost" style="width:100%;margin-top:.4rem" onclick="showAddCatalogItem()">+ New Item Instead</button>`:''}`;
+}
+
+async function saveCatalogItem(){
+  const name  = document.getElementById('cfName').value.trim();
+  const price = parseFloat(document.getElementById('cfPrice').value)||0;
+  if(!name){showAlert('cfAlert','Item name is required','alert-err');return;}
+  if(!price){showAlert('cfAlert','Unit price is required','alert-err');return;}
+  const payload = {
+    catalogId:   _editingCatalogId||0,
+    hotelId:     1,
+    category:    document.getElementById('cfCat').value,
+    itemName:    name,
+    description: document.getElementById('cfDesc').value,
+    unitPrice:   price,
+    unit:        document.getElementById('cfUnit').value||'per item',
+    taxPercent:  parseFloat(document.getElementById('cfTax').value)||0,
+    sortOrder:   parseInt(document.getElementById('cfSort').value)||0,
+    isAvailable: document.getElementById('cfAvail').value==='true'
+  };
+  const d = _editingCatalogId
+    ? await api('PUT',`/orders/catalog/${_editingCatalogId}`,payload)
+    : await api('POST','/orders/catalog',payload);
+  if(d?.success){
+    showAlert('cfAlert','✅ Saved successfully','alert-ok');
+    _editingCatalogId = null; _catalogCache = [];
+    loadCatalogPage();
+  } else showAlert('cfAlert',d?.message||'Save failed','alert-err');
+}
+
+async function deleteCatalogItem(id){
+  if(!confirm('Remove this catalog item? It will be hidden from orders.')) return;
+  const d = await api('DELETE',`/orders/catalog/${id}`);
+  if(d?.success){_catalogCache=[];loadCatalogPage();}
+  else alert(d?.message||'Delete failed');
+}
+
+</script>
+</body>
+</html>

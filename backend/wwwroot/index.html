@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title id="pageTitle">The Sapphire Suits | Luxury Stay</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--gold:#c9a96e;--gold-l:#e8d5a3;--gold-d:#9a7a4a;--navy:#0d1b2a;--navy2:#1a2f46;--cream:#faf8f3;--white:#fff;--gray:#6b7280;--border:rgba(201,169,110,0.25);--ok:#059669;--err:#dc2626;--shad:0 4px 30px rgba(13,27,42,.12);--shad-lg:0 20px 60px rgba(13,27,42,.22);}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Jost',sans-serif;background:var(--cream);color:var(--navy);overflow-x:hidden;}
+
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:900;height:68px;padding:0 5%;background:rgba(13,27,42,.94);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.logo{text-decoration:none;flex-shrink:0;}.logo strong{font-family:'Cormorant Garamond',serif;font-size:1.45rem;font-weight:600;color:var(--gold);letter-spacing:1px;}
+.logo span{display:block;font-size:.64rem;letter-spacing:3.5px;color:rgba(255,255,255,.45);text-transform:uppercase;font-family:'Jost',sans-serif;}
+.nav-links{display:flex;align-items:center;gap:.2rem;}
+.nav-links a{color:rgba(255,255,255,.7);text-decoration:none;font-size:.78rem;letter-spacing:1.5px;text-transform:uppercase;padding:.35rem .8rem;transition:color .2s;cursor:pointer;white-space:nowrap;}
+.nav-links a:hover{color:var(--gold);}
+/* Customer auth button in nav */
+.nav-auth{display:flex;align-items:center;gap:.6rem;flex-shrink:0;}
+.nav-signin{background:transparent;border:1px solid rgba(201,169,110,.5);color:var(--gold);padding:.4rem 1.1rem;font-size:.75rem;letter-spacing:1.5px;text-transform:uppercase;font-weight:600;cursor:pointer;font-family:'Jost',sans-serif;transition:all .2s;}
+.nav-signin:hover{background:var(--gold);color:var(--navy);}
+/* Logged-in guest pill */
+.nav-guest{display:none;align-items:center;gap:.7rem;}
+.nav-guest-name{color:var(--gold-l);font-size:.78rem;letter-spacing:.5px;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis;}
+.nav-guest-btn{background:var(--gold);color:var(--navy);border:none;padding:.38rem .95rem;font-size:.72rem;letter-spacing:1px;text-transform:uppercase;font-weight:700;cursor:pointer;font-family:'Jost',sans-serif;transition:all .2s;white-space:nowrap;}
+.nav-guest-btn:hover{background:var(--gold-d);}
+.nav-signout{background:none;border:none;color:rgba(255,255,255,.35);font-size:.7rem;cursor:pointer;font-family:'Jost',sans-serif;padding:.3rem .5rem;transition:color .2s;letter-spacing:.5px;}
+.nav-signout:hover{color:var(--err);}
+/* Mobile hamburger */
+.nav-toggle{display:none;flex-direction:column;gap:5px;background:none;border:none;cursor:pointer;padding:.4rem;}
+.nav-toggle span{display:block;width:22px;height:2px;background:rgba(255,255,255,.7);border-radius:2px;}
+.nav-drawer{display:none;position:fixed;top:68px;left:0;right:0;background:rgba(13,27,42,.97);border-bottom:1px solid var(--border);padding:1rem 5% 1.5rem;flex-direction:column;gap:.2rem;z-index:899;}
+.nav-drawer.open{display:flex;}
+.nav-drawer a{color:rgba(255,255,255,.75);text-decoration:none;font-size:.82rem;letter-spacing:1.5px;text-transform:uppercase;padding:.7rem .5rem;border-bottom:1px solid rgba(255,255,255,.05);cursor:pointer;}
+.nav-drawer a:last-child{border-bottom:none;}
+.nav-drawer a:hover{color:var(--gold);}
+
+/* HERO */
+.hero{height:100vh;min-height:580px;background:linear-gradient(140deg,#0d1b2a 0%,#1a3558 55%,#243b66 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 5%;position:relative;overflow:hidden;}
+.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 60% 50% at 25% 75%,rgba(201,169,110,.07) 0%,transparent 60%),radial-gradient(ellipse 50% 40% at 75% 25%,rgba(42,90,140,.2) 0%,transparent 60%);}
+.hero-badge{display:inline-flex;align-items:center;gap:.6rem;border:1px solid var(--border);color:var(--gold-l);padding:.35rem 1.4rem;font-size:.7rem;letter-spacing:3px;text-transform:uppercase;margin-bottom:1.6rem;background:rgba(201,169,110,.06);position:relative;}
+.hero h1{font-family:'Cormorant Garamond',serif;font-size:clamp(2.6rem,7vw,5.8rem);font-weight:300;color:#fff;line-height:1.05;margin-bottom:1.2rem;position:relative;}
+.hero h1 em{font-style:italic;color:var(--gold);}
+.hero p{color:rgba(255,255,255,.55);font-size:.95rem;font-weight:300;max-width:480px;line-height:1.8;margin-bottom:2.5rem;position:relative;}
+.hero-btns{display:flex;gap:1rem;flex-wrap:wrap;justify-content:center;position:relative;}
+.btn{display:inline-flex;align-items:center;gap:.5rem;padding:.75rem 2rem;font-size:.78rem;letter-spacing:1.5px;text-transform:uppercase;font-weight:600;cursor:pointer;border:none;font-family:'Jost',sans-serif;transition:all .2s;text-decoration:none;}
+.btn-gold{background:var(--gold);color:var(--navy);}
+.btn-gold:hover{background:var(--gold-d);}
+.btn-outline{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.35);}
+.btn-outline:hover{border-color:var(--gold);color:var(--gold);}
+.scroll-hint{position:absolute;bottom:2rem;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.3);font-size:.65rem;letter-spacing:2.5px;text-transform:uppercase;display:flex;flex-direction:column;align-items:center;gap:.5rem;}
+.scroll-line{width:1px;height:36px;background:linear-gradient(to bottom,var(--gold),transparent);}
+
+/* BOOKING WIDGET */
+.widget-wrap{max-width:960px;margin:-52px auto 0;position:relative;z-index:10;padding:0 5%;}
+.booking-widget{background:#fff;padding:2rem 2.5rem;box-shadow:var(--shad-lg);border-top:3px solid var(--gold);}
+.widget-label{font-size:.68rem;letter-spacing:2.5px;text-transform:uppercase;color:var(--gold);margin-bottom:1rem;font-weight:500;}
+.widget-grid{display:grid;grid-template-columns:1fr 1fr 90px 90px 1fr;gap:1.2rem;align-items:end;}
+.wf{display:flex;flex-direction:column;gap:.35rem;}
+.wf label{font-size:.65rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--gray);}
+.wf input,.wf select{padding:.65rem 0;border:none;border-bottom:1.5px solid #e5e7eb;font-size:.92rem;font-family:'Jost',sans-serif;color:var(--navy);background:transparent;outline:none;transition:border-color .2s;}
+.wf input:focus,.wf select:focus{border-bottom-color:var(--gold);}
+.search-btn{background:var(--navy);color:#fff;border:none;padding:.75rem;font-size:.75rem;letter-spacing:1.5px;text-transform:uppercase;font-weight:600;cursor:pointer;transition:all .2s;font-family:'Jost',sans-serif;width:100%;}
+.search-btn:hover{background:var(--gold);color:var(--navy);}
+#wMsg{grid-column:1/-1;font-size:.84rem;}
+
+/* SECTION */
+.sec{padding:5.5rem 5%;}
+.sec-head{text-align:center;margin-bottom:3.5rem;}
+.sec-eye{font-size:.68rem;letter-spacing:3px;text-transform:uppercase;color:var(--gold);margin-bottom:.7rem;}
+.sec-title{font-family:'Cormorant Garamond',serif;font-size:clamp(1.9rem,4vw,3rem);font-weight:300;color:var(--navy);line-height:1.1;}
+.sec-title em{font-style:italic;color:var(--gold-d);}
+.sec-line{width:36px;height:2px;background:var(--gold);margin:.9rem auto 0;}
+
+/* ROOM CARDS */
+.rooms-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:2px;}
+.rcard{background:#fff;overflow:hidden;cursor:pointer;transition:transform .25s,box-shadow .25s;position:relative;}
+.rcard:hover{transform:translateY(-5px);box-shadow:var(--shad-lg);}
+.rthumb{height:220px;background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 100%);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;}
+.rthumb .ri{font-size:4.5rem;opacity:.25;}
+.rthumb-badge{position:absolute;top:.9rem;right:.9rem;background:var(--gold);color:var(--navy);padding:.2rem .75rem;font-size:.65rem;letter-spacing:1px;text-transform:uppercase;font-weight:700;}
+.rstatus{position:absolute;top:.9rem;left:.9rem;padding:.18rem .65rem;font-size:.65rem;letter-spacing:1px;text-transform:uppercase;font-weight:700;}
+.rstatus.avail{background:rgba(5,150,105,.9);color:#fff;}
+.rstatus.na{background:rgba(220,38,38,.9);color:#fff;}
+.rbody{padding:1.4rem;}
+.rname{font-family:'Cormorant Garamond',serif;font-size:1.35rem;font-weight:400;color:var(--navy);margin-bottom:.2rem;}
+.rsub{font-size:.75rem;color:var(--gray);letter-spacing:.5px;margin-bottom:.9rem;}
+.ramen{display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:1.1rem;}
+.ramen span{font-size:.68rem;color:var(--gray);border:1px solid #eee;padding:.15rem .5rem;}
+.rfooter{display:flex;align-items:center;justify-content:space-between;padding-top:.9rem;border-top:1px solid #f3f0ea;}
+.rprice-amt{font-family:'Cormorant Garamond',serif;font-size:1.7rem;font-weight:600;color:var(--navy);}
+.rprice-lbl{font-size:.68rem;color:var(--gray);letter-spacing:.5px;}
+.rprice-total{font-size:.75rem;color:var(--gold-d);margin-top:.1rem;}
+.rbook-btn{background:var(--navy);color:#fff;border:none;padding:.6rem 1.3rem;font-size:.72rem;letter-spacing:1.5px;text-transform:uppercase;font-weight:600;cursor:pointer;transition:all .2s;font-family:'Jost',sans-serif;}
+.rbook-btn:hover{background:var(--gold);color:var(--navy);}
+.rbook-btn:disabled{opacity:.4;cursor:not-allowed;}
+
+/* FEATURES BAND */
+.features-sec{background:var(--navy);padding:5rem 5%;}
+.features-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:2.5rem;margin-top:3rem;}
+.feat{text-align:center;}
+.feat-icon{font-size:1.8rem;margin-bottom:.8rem;}
+.feat-name{font-family:'Cormorant Garamond',serif;font-size:1.1rem;color:#fff;margin-bottom:.4rem;}
+.feat-txt{font-size:.8rem;color:rgba(255,255,255,.4);line-height:1.7;}
+
+/* FOOTER */
+footer{background:var(--navy);border-top:1px solid rgba(255,255,255,.06);padding:4rem 5% 2rem;}
+.footer-grid{display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:4rem;margin-bottom:2.5rem;}
+.footer-brand .fn{font-family:'Cormorant Garamond',serif;font-size:1.5rem;color:var(--gold);margin-bottom:.5rem;}
+.footer-brand p{color:rgba(255,255,255,.35);font-size:.82rem;line-height:1.7;}
+footer h4{color:rgba(255,255,255,.85);font-size:.68rem;letter-spacing:2px;text-transform:uppercase;margin-bottom:.9rem;}
+footer ul{list-style:none;}
+footer ul li{margin-bottom:.45rem;}
+footer ul li a{color:rgba(255,255,255,.4);text-decoration:none;font-size:.82rem;cursor:pointer;transition:color .2s;}
+footer ul li a:hover{color:var(--gold);}
+.footer-bottom{border-top:1px solid rgba(255,255,255,.06);padding-top:1.2rem;display:flex;justify-content:space-between;align-items:center;}
+.footer-bottom p{color:rgba(255,255,255,.22);font-size:.75rem;}
+
+/* MODAL */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:2000;display:none;align-items:center;justify-content:center;padding:1rem;}
+.overlay.show{display:flex;}
+.modal{background:#fff;max-width:640px;width:100%;max-height:93vh;overflow-y:auto;position:relative;}
+.mhead{background:var(--navy);padding:1.4rem 2rem;display:flex;align-items:center;justify-content:space-between;}
+.mhead h2{font-family:'Cormorant Garamond',serif;font-size:1.5rem;color:#fff;font-weight:300;}
+.mclose{background:none;border:none;color:rgba(255,255,255,.5);font-size:1.5rem;cursor:pointer;transition:color .2s;line-height:1;}
+.mclose:hover{color:var(--gold);}
+.mbody{padding:2rem;}
+.steps-bar{display:flex;margin-bottom:2rem;}
+.st{flex:1;text-align:center;position:relative;}
+.st::after{content:'';position:absolute;top:14px;left:50%;right:-50%;height:1px;background:#e5e7eb;z-index:0;}
+.st:last-child::after{display:none;}
+.st-n{width:28px;height:28px;border-radius:50%;border:1px solid #ddd;display:flex;align-items:center;justify-content:center;font-size:.75rem;margin:0 auto .35rem;background:#fff;position:relative;z-index:1;font-weight:600;}
+.st.act .st-n{background:var(--gold);border-color:var(--gold);color:var(--navy);}
+.st.done .st-n{background:var(--ok);border-color:var(--ok);color:#fff;}
+.st-l{font-size:.65rem;letter-spacing:.5px;color:var(--gray);text-transform:uppercase;}
+.st.act .st-l{color:var(--gold);}
+.ptable{background:#faf8f3;padding:1.2rem;margin:1rem 0;}
+.pr{display:flex;justify-content:space-between;padding:.3rem 0;font-size:.86rem;}
+.pr.tot{border-top:1px solid var(--gold-l);margin-top:.5rem;padding-top:.75rem;font-size:1rem;font-weight:600;font-family:'Cormorant Garamond',serif;}
+.nr{display:flex;justify-content:space-between;padding:.18rem 0;font-size:.8rem;color:var(--gray);}
+.fg{display:flex;flex-direction:column;gap:.35rem;}
+.fg label{font-size:.68rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--gray);}
+.fg input,.fg select,.fg textarea{padding:.62rem .85rem;border:1px solid #e5e7eb;font-size:.9rem;font-family:'Jost',sans-serif;color:var(--navy);outline:none;transition:border-color .2s;border-radius:2px;background:#fff;}
+.fg input:focus,.fg select:focus{border-color:var(--gold);}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:.9rem;}
+.fgrid .fg.full{grid-column:1/-1;}
+.mbtn{width:100%;margin-top:1rem;padding:.8rem;background:var(--navy);color:#fff;border:none;font-size:.78rem;letter-spacing:1.5px;text-transform:uppercase;font-weight:600;cursor:pointer;font-family:'Jost',sans-serif;transition:all .2s;}
+.mbtn:hover{background:var(--gold);color:var(--navy);}
+.mbtn-back{background:transparent;color:var(--navy);border:1px solid #ddd;margin-top:.5rem;}
+.mbtn-back:hover{background:var(--navy);color:#fff;}
+.conf-box{text-align:center;padding:1.5rem;}
+.conf-ref{font-family:'Cormorant Garamond',serif;font-size:2.6rem;color:var(--gold);letter-spacing:5px;margin:1rem 0;}
+.conf-details{text-align:left;background:#faf8f3;padding:1rem;margin:1rem 0;}
+.alert{padding:.8rem 1rem;font-size:.84rem;margin:.5rem 0;}
+.alert-err{background:#fef2f2;border:1px solid #fecaca;color:#991b1b;}
+.alert-ok{background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;}
+.spin{display:inline-block;width:16px;height:16px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;opacity:.7;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* CUSTOMER LOGIN MODAL extra styles */
+.tab-bar{display:flex;border-bottom:1px solid #e5e7eb;margin-bottom:1.5rem;}
+.tab{flex:1;padding:.7rem;text-align:center;font-size:.75rem;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;color:var(--gray);border-bottom:2px solid transparent;transition:all .2s;font-weight:500;}
+.tab.act{color:var(--gold);border-bottom-color:var(--gold);}
+
+/* MY BOOKINGS FULL-PAGE OVERLAY */
+.page-overlay{position:fixed;inset:0;background:var(--cream);z-index:1800;display:none;flex-direction:column;overflow-y:auto;}
+.page-overlay.show{display:flex;}
+.page-nav{background:rgba(13,27,42,.97);height:68px;display:flex;align-items:center;justify-content:space-between;padding:0 5%;flex-shrink:0;border-bottom:1px solid var(--border);}
+.page-nav-title{font-family:'Cormorant Garamond',serif;font-size:1.3rem;color:#fff;font-weight:300;}
+.page-close{background:none;border:none;color:rgba(255,255,255,.5);font-size:1.4rem;cursor:pointer;transition:color .2s;line-height:1;}
+.page-close:hover{color:var(--gold);}
+.page-body{padding:2.5rem 5%;max-width:900px;margin:0 auto;width:100%;}
+.page-welcome{margin-bottom:2rem;}
+.page-welcome h2{font-family:'Cormorant Garamond',serif;font-size:2rem;font-weight:300;color:var(--navy);}
+.page-welcome p{color:var(--gray);font-size:.9rem;margin-top:.3rem;}
+/* Booking cards in My Bookings page */
+.bk-card{background:#fff;border:1px solid #eee;margin-bottom:1rem;overflow:hidden;transition:box-shadow .2s;}
+.bk-card:hover{box-shadow:var(--shad);}
+.bk-card-head{background:var(--navy);padding:.9rem 1.3rem;display:flex;align-items:center;justify-content:space-between;}
+.bk-ref{font-family:'Cormorant Garamond',serif;font-size:1.1rem;color:var(--gold);letter-spacing:2px;}
+.bk-status{padding:.18rem .7rem;font-size:.65rem;letter-spacing:1px;text-transform:uppercase;font-weight:700;}
+.bk-card-body{padding:1.1rem 1.3rem;display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:.8rem;align-items:center;}
+.bk-label{font-size:.65rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--gray);margin-bottom:.2rem;}
+.bk-val{font-size:.92rem;color:var(--navy);font-weight:500;}
+.bk-price{text-align:right;}
+.bk-price .bk-val{font-family:'Cormorant Garamond',serif;font-size:1.4rem;color:var(--navy);}
+.bk-cancel-btn{background:none;border:1px solid #fecaca;color:#dc2626;padding:.4rem .9rem;font-size:.7rem;letter-spacing:1px;text-transform:uppercase;cursor:pointer;font-family:'Jost',sans-serif;transition:all .2s;}
+.bk-cancel-btn:hover{background:#dc2626;color:#fff;}
+.status-Confirmed{background:rgba(5,150,105,.15);color:#065f46;}
+.status-CheckedIn{background:rgba(37,99,235,.15);color:#1e40af;}
+.status-CheckedOut{background:rgba(107,114,128,.15);color:#374151;}
+.status-Cancelled{background:rgba(220,38,38,.15);color:#991b1b;}
+.status-Pending{background:rgba(217,119,6,.15);color:#92400e;}
+.bk-empty{text-align:center;padding:4rem 2rem;color:var(--gray);}
+.bk-empty-icon{font-size:3rem;margin-bottom:1rem;opacity:.4;}
+@media(max-width:768px){
+  .widget-grid{grid-template-columns:1fr 1fr;}
+  .footer-grid{grid-template-columns:1fr;}
+  .fgrid{grid-template-columns:1fr;}
+  .nav-links{display:none;}
+  .nav-toggle{display:flex;}
+  .bk-card-body{grid-template-columns:1fr 1fr;}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="#" class="logo"><strong id="navHotelName">The Sapphire Suits</strong><span id="navHotelSub">— Luxury Hotel</span></a>
+  <div class="nav-links">
+    <a href="#rooms">Rooms &amp; Suites</a>
+    <a href="#amenities">Amenities</a>
+    <a onclick="openMyBookingHub()">My Booking</a>
+  </div>
+  <!-- Customer auth — right side of nav -->
+  <div class="nav-auth">
+    <!-- Logged-OUT state -->
+    <button class="nav-signin" id="navSignIn" onclick="openAuthModal()">Sign In</button>
+    <!-- Logged-IN state (hidden until login) -->
+    <div class="nav-guest" id="navGuest">
+      <span class="nav-guest-name" id="navGuestName">Guest</span>
+      <button class="nav-guest-btn" onclick="openMyBookings()">My Bookings</button>
+      <button class="nav-signout" onclick="signOut()" title="Sign out">✕ Sign out</button>
+    </div>
+    <!-- Mobile hamburger -->
+    <button class="nav-toggle" onclick="toggleMobileNav()" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</nav>
+<!-- Mobile drawer -->
+<div class="nav-drawer" id="navDrawer">
+  <a onclick="closeMobileNav();document.getElementById('rooms').scrollIntoView({behavior:'smooth'})">Rooms &amp; Suites</a>
+  <a onclick="closeMobileNav();document.getElementById('amenities').scrollIntoView({behavior:'smooth'})">Amenities</a>
+  <a onclick="closeMobileNav();openMyBookingHub()">My Booking</a>
+</div>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-badge">✦ Five-Star Luxury Hotel ✦</div>
+  <h1 id="heroTitle">Where <em id="heroCity">…</em><br>Meets Elegance</h1>
+  <p id="heroTagline">Experience unrivalled luxury — stunning views, world-class dining, and timeless hospitality.</p>
+  <div class="hero-btns">
+    <a href="#rooms" class="btn btn-gold">Explore Rooms</a>
+    <a href="#" onclick="openMyBookingHub();return false;" class="btn btn-outline">📋 My Booking</a>
+  </div>
+  <div class="scroll-hint"><div class="scroll-line"></div>Scroll to explore</div>
+</section>
+
+<!-- BOOKING WIDGET -->
+<div class="widget-wrap">
+  <div class="booking-widget">
+    <div class="widget-label">✦ Check Availability &amp; Reserve</div>
+    <div class="widget-grid">
+      <div class="wf"><label>Check-In Date</label><input type="date" id="wIn"></div>
+      <div class="wf"><label>Check-Out Date</label><input type="date" id="wOut"></div>
+      <div class="wf"><label>Adults</label>
+        <select id="wAdults"><option>1</option><option selected>2</option><option>3</option><option>4</option></select>
+      </div>
+      <div class="wf"><label>Children</label>
+        <select id="wChild"><option selected>0</option><option>1</option><option>2</option><option>3</option></select>
+      </div>
+      <div class="wf"><label>&nbsp;</label><button class="search-btn" onclick="searchRooms()">Search Rooms</button></div>
+      <div id="wMsg"></div>
+    </div>
+    <div style="text-align:center;margin-top:.85rem;padding-top:.75rem;border-top:1px solid rgba(201,169,110,0.2);">
+      <span style="font-size:.78rem;color:rgba(255,255,255,.5);letter-spacing:.5px;">Already booked?</span>
+      <a href="#" onclick="openMyBookingHub();return false;" style="font-size:.78rem;color:var(--gold);text-decoration:none;letter-spacing:.5px;margin-left:.5rem;font-weight:600;">View My Booking →</a>
+    </div>
+  </div>
+</div>
+
+<!-- ROOMS -->
+<section class="sec" id="rooms">
+  <div class="sec-head">
+    <div class="sec-eye">Our Accommodations</div>
+    <div class="sec-title">Rooms &amp; <em>Suites</em></div>
+    <div class="sec-line"></div>
+  </div>
+  <div class="rooms-grid" id="roomsGrid">
+    <div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--gray);font-size:.95rem;">
+      Please enter your dates above to view availability and pricing.
+    </div>
+  </div>
+</section>
+
+<!-- AMENITIES -->
+<section class="features-sec" id="amenities">
+  <div class="sec-head">
+    <div class="sec-eye" style="color:var(--gold-l)">Hotel Amenities</div>
+    <div class="sec-title" style="color:#fff">World-Class <em>Facilities</em></div>
+    <div class="sec-line"></div>
+  </div>
+  <div class="features-grid" id="amenitiesGrid"></div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <div class="fn" id="footerHotelName">The Sapphire Suits</div>
+      <p id="footerContact">Loading…</p>
+    </div>
+    <div>
+      <h4>Quick Links</h4>
+      <ul>
+        <li><a href="#rooms">Rooms &amp; Suites</a></li>
+        <li><a href="#amenities">Amenities</a></li>
+        <li><a onclick="openMyBookingHub()">My Booking</a></li>
+        <li><a onclick="openAuthModal()">Guest Sign In</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Policies</h4>
+      <ul>
+        <li><a id="polCheckIn">Check-In: 2:00 PM</a></li>
+        <li><a id="polCheckOut">Check-Out: 11:00 AM</a></li>
+        <li><a id="polCancel">Free cancellation 24hrs prior</a></li>
+        <li><a id="polGst">GST applicable</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p id="footerCopy">© 2024 Sapphire Suits. All rights reserved.</p>
+    <p style="color:rgba(255,255,255,.2);font-size:.72rem;">Powered by Hotel Channel Manager v1.0</p>
+  </div>
+</footer>
+
+<!-- BOOKING MODAL -->
+<div class="overlay" id="bookModal">
+  <div class="modal">
+    <div class="mhead">
+      <h2 id="mRoomName">Book Room</h2>
+      <button class="mclose" onclick="closeModal('bookModal')">✕</button>
+    </div>
+    <div class="mbody">
+      <div class="steps-bar" id="stepsBar">
+        <div class="st act" id="s1"><div class="st-n">1</div><div class="st-l">Review</div></div>
+        <div class="st" id="s2"><div class="st-n">2</div><div class="st-l">Guest Info</div></div>
+        <div class="st" id="s3"><div class="st-n">3</div><div class="st-l">Confirm</div></div>
+      </div>
+      <!-- Step 1 -->
+      <div id="step1">
+        <div id="quoteLoading" style="text-align:center;padding:2rem;display:none;"><span class="spin"></span> Calculating price...</div>
+        <div id="quoteBody">
+          <div class="ptable" id="priceTable"></div>
+          <div id="qAlert"></div>
+          <div class="fg" style="margin-top:1rem;">
+            <label>Payment Option</label>
+            <select id="payMode">
+              <option value="PayAtHotel">Pay at Hotel — settle during check-in</option>
+              <option value="OnlinePaid">Pay Online Now — secure payment</option>
+            </select>
+          </div>
+          <div class="fg" style="margin-top:.8rem;">
+            <label>Special Requests</label>
+            <textarea id="specReq" rows="2" placeholder="Early check-in, room preferences, dietary needs..."></textarea>
+          </div>
+          <button class="mbtn" onclick="goStep(2)">Continue to Guest Details →</button>
+        </div>
+      </div>
+      <!-- Step 2 -->
+      <div id="step2" style="display:none;">
+        <h3 style="font-family:'Cormorant Garamond',serif;font-size:1.2rem;margin-bottom:1.2rem;color:var(--navy);">Guest Information</h3>
+        <div class="fgrid">
+          <div class="fg"><label>First Name *</label><input id="gFN" placeholder="First name"></div>
+          <div class="fg"><label>Last Name *</label><input id="gLN" placeholder="Last name"></div>
+          <div class="fg full"><label>Email Address *</label><input type="email" id="gEmail" placeholder="your@email.com"></div>
+          <div class="fg"><label>Phone Number</label><input type="tel" id="gPhone" placeholder="+91-..."></div>
+          <div class="fg"><label>Nationality</label><input id="gNat" placeholder="e.g. Indian"></div>
+          <div class="fg"><label>ID Type</label>
+            <select id="gIDT"><option value="">Select ID</option><option>Passport</option><option>Aadhar Card</option><option>PAN Card</option><option>Driver's License</option><option>Voter ID</option></select>
+          </div>
+          <div class="fg"><label>ID Number</label><input id="gIDN" placeholder="ID number"></div>
+        </div>
+        <div id="gAlert"></div>
+        <button class="mbtn" onclick="submitBooking()">Confirm Booking</button>
+        <button class="mbtn mbtn-back" onclick="goStep(1)">← Back</button>
+      </div>
+      <!-- Step 3 -->
+      <div id="step3" style="display:none;">
+        <div class="conf-box">
+          <div style="font-size:2.5rem;">🎊</div>
+          <h3 style="font-family:'Cormorant Garamond',serif;font-size:1.6rem;color:var(--navy);margin:.5rem 0;">Booking Confirmed!</h3>
+          <p style="color:var(--gray);font-size:.88rem;">Your reservation is confirmed. Please save your reference number.</p>
+          <div class="conf-ref" id="confRef">——</div>
+          <div class="conf-details" id="confDetails"></div>
+          <button class="mbtn" onclick="closeModal('bookModal');location.reload()">Book Another Room</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     CUSTOMER AUTH MODAL  — Sign In (email + booking ref) | Track by ref
+     ═══════════════════════════════════════════════════════════════════════ -->
+<div class="overlay" id="authModal">
+  <div class="modal" style="max-width:480px;">
+    <div class="mhead">
+      <h2 id="authModalTitle">My Booking</h2>
+      <button class="mclose" onclick="closeModal('authModal')">✕</button>
+    </div>
+    <div class="mbody">
+      <!-- Tab bar -->
+      <div class="tab-bar">
+        <div class="tab act" id="tabSignIn"  onclick="switchAuthTab('signin')">Sign In</div>
+        <div class="tab"     id="tabTrack"   onclick="switchAuthTab('track')">Track by Reference</div>
+      </div>
+
+      <!-- ── SIGN IN PANEL ── -->
+      <div id="panelSignIn">
+        <p style="font-size:.84rem;color:var(--gray);margin-bottom:1.2rem;line-height:1.7;">
+          Sign in to view all your bookings in one place. We verify your identity using your email and any booking reference.
+        </p>
+        <div class="fg" style="margin-bottom:.9rem;">
+          <label>Email Address</label>
+          <input type="email" id="siEmail" placeholder="your@email.com" onkeydown="if(event.key==='Enter')doCustomerLogin()">
+        </div>
+        <div class="fg" style="margin-bottom:.9rem;">
+          <label>Booking Reference</label>
+          <input id="siRef" placeholder="e.g. BK20260309123456" style="text-transform:uppercase;" onkeydown="if(event.key==='Enter')doCustomerLogin()">
+        </div>
+        <div id="siAlert"></div>
+        <button class="mbtn" onclick="doCustomerLogin()">Sign In to My Account</button>
+        <p style="text-align:center;font-size:.78rem;color:var(--gray);margin-top:.8rem;">
+          Don't have an account? <a href="#" onclick="switchAuthTab('track');return false;" style="color:var(--gold);">Track a booking by reference →</a>
+        </p>
+      </div>
+
+      <!-- ── TRACK BY REFERENCE PANEL ── -->
+      <div id="panelTrack" style="display:none;">
+        <p style="font-size:.84rem;color:var(--gray);margin-bottom:1.2rem;line-height:1.7;">
+          Enter your booking reference number to see your reservation details without signing in.
+        </p>
+        <div class="fg">
+          <label>Booking Reference Number</label>
+          <input id="trackRef" placeholder="e.g. BK20260309123456" style="text-transform:uppercase;" onkeydown="if(event.key==='Enter')trackBooking()">
+        </div>
+        <div id="trackAlert"></div>
+        <button class="mbtn" onclick="trackBooking()">Find My Booking</button>
+        <div id="trackResult" style="margin-top:1.5rem;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     MY BOOKINGS — Full-page overlay shown after customer login
+     ═══════════════════════════════════════════════════════════════════════ -->
+<div class="page-overlay" id="myBookingsPage">
+  <div class="page-nav">
+    <div style="display:flex;align-items:center;gap:1rem;">
+      <button class="page-close" onclick="closeMyBookings()">←</button>
+      <span class="page-nav-title">My Bookings</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:.8rem;">
+      <span id="mbGuestName" style="color:rgba(255,255,255,.6);font-size:.8rem;"></span>
+      <button onclick="signOut()" style="background:none;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.5);padding:.3rem .8rem;font-size:.7rem;letter-spacing:1px;text-transform:uppercase;cursor:pointer;font-family:'Jost',sans-serif;transition:all .2s;" onmouseover="this.style.borderColor='var(--err)';this.style.color='var(--err)'" onmouseout="this.style.borderColor='rgba(255,255,255,.2)';this.style.color='rgba(255,255,255,.5)'">Sign Out</button>
+    </div>
+  </div>
+  <div class="page-body">
+    <div class="page-welcome">
+      <h2>Welcome back, <span id="mbWelcomeName" style="color:var(--gold-d);font-style:italic;">Guest</span></h2>
+      <p>All your reservations at a glance.</p>
+    </div>
+    <div id="mbLoading" style="text-align:center;padding:3rem;color:var(--gray);"><span class="spin"></span> Loading your bookings…</div>
+    <div id="mbList"></div>
+  </div>
+</div>
+
+<script>
+const API = '/api';
+let selRoomTypeId = null, selQuote = null;
+
+// ── SESSION (localStorage-backed customer login) ───────────────────────────
+const SESSION_KEY = 'hcm_guest';
+function getSession()  { try { return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch{ return null; } }
+function setSession(s) { localStorage.setItem(SESSION_KEY, JSON.stringify(s)); }
+function clearSession(){ localStorage.removeItem(SESSION_KEY); }
+
+// ── MOBILE NAV ─────────────────────────────────────────────────────────────
+function toggleMobileNav() { document.getElementById('navDrawer').classList.toggle('open'); }
+function closeMobileNav()  { document.getElementById('navDrawer').classList.remove('open'); }
+document.addEventListener('click', e => {
+  const d = document.getElementById('navDrawer'), t = document.querySelector('.nav-toggle');
+  if (d && d.classList.contains('open') && !d.contains(e.target) && t && !t.contains(e.target)) closeMobileNav();
+});
+
+// ── HELPERS ────────────────────────────────────────────────────────────────
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'});
+}
+function fmtTime(t) {
+  if (!t) return '—';
+  const parts = t.split(':');
+  const h = parseInt(parts[0]), ampm = h >= 12 ? 'PM' : 'AM', hr = h % 12 || 12;
+  return `${hr}:${parts[1] || '00'} ${ampm}`;
+}
+function showModal(id)  { document.getElementById(id).classList.add('show'); }
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+function showMsg(id, msg, type) {
+  document.getElementById(id).innerHTML = `<div class="alert alert-${type==='err'?'err':'ok'}">${msg}</div>`;
+}
+function clearMsg(id) { document.getElementById(id).innerHTML = ''; }
+function parseSettings(arr) {
+  const map = {};
+  (arr || []).forEach(s => { if (s.settingKey) map[s.settingKey] = s.settingValue; });
+  return map;
+}
+
+// ── NAV AUTH STATE ─────────────────────────────────────────────────────────
+function updateNavAuth() {
+  const s = getSession();
+  const signIn = document.getElementById('navSignIn');
+  const guest  = document.getElementById('navGuest');
+  const name   = document.getElementById('navGuestName');
+  if (s && s.token) {
+    signIn.style.display = 'none';
+    guest.style.display  = 'flex';
+    // Show first name only
+    name.textContent = '👤 ' + (s.guestName || s.email).split(' ')[0];
+  } else {
+    signIn.style.display = '';
+    guest.style.display  = 'none';
+  }
+}
+
+function signOut() {
+  clearSession();
+  updateNavAuth();
+  closeMyBookings();
+  closeModal('authModal');
+}
+
+// ── AUTH MODAL ─────────────────────────────────────────────────────────────
+function openAuthModal(startTab) {
+  switchAuthTab(startTab || 'signin');
+  showModal('authModal');
+}
+
+// "My Booking" hub: if logged in → straight to My Bookings page; else → auth modal
+function openMyBookingHub() {
+  const s = getSession();
+  if (s && s.token) {
+    openMyBookings();
+  } else {
+    openAuthModal('signin');
+  }
+}
+
+function switchAuthTab(tab) {
+  const isSI = tab === 'signin';
+  document.getElementById('tabSignIn').className  = 'tab' + (isSI  ? ' act' : '');
+  document.getElementById('tabTrack').className   = 'tab' + (!isSI ? ' act' : '');
+  document.getElementById('panelSignIn').style.display = isSI  ? '' : 'none';
+  document.getElementById('panelTrack').style.display  = !isSI ? '' : 'none';
+  // clear alerts
+  clearMsg('siAlert');
+  clearMsg('trackAlert');
+  document.getElementById('trackResult').innerHTML = '';
+}
+
+// ── CUSTOMER LOGIN ─────────────────────────────────────────────────────────
+async function doCustomerLogin() {
+  const email = document.getElementById('siEmail').value.trim();
+  const ref   = document.getElementById('siRef').value.trim().toUpperCase();
+  if (!email || !ref) { showMsg('siAlert', 'Email and booking reference are required.', 'err'); return; }
+  if (!email.includes('@')) { showMsg('siAlert', 'Please enter a valid email address.', 'err'); return; }
+
+  showMsg('siAlert', '<span class="spin"></span> Signing in…', 'ok');
+  try {
+    const r = await fetch(`${API}/customers/login`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ email, bookingReference: ref })
+    });
+    const d = await r.json();
+    if (d.success) {
+      setSession({ token: d.data.token, guestName: d.data.guestName, email: d.data.email, totalStays: d.data.totalStays });
+      updateNavAuth();
+      closeModal('authModal');
+      openMyBookings();
+    } else {
+      showMsg('siAlert', d.message || 'Sign in failed. Please check your details.', 'err');
+    }
+  } catch(e) {
+    showMsg('siAlert', 'Connection error. Please try again.', 'err');
+  }
+}
+
+// ── MY BOOKINGS PAGE ────────────────────────────────────────────────────────
+function openMyBookings() {
+  const s = getSession();
+  if (!s || !s.token) { openAuthModal('signin'); return; }
+  const first = (s.guestName || s.email).split(' ')[0];
+  document.getElementById('mbWelcomeName').textContent = first;
+  document.getElementById('mbGuestName').textContent   = s.guestName || s.email;
+  document.getElementById('myBookingsPage').classList.add('show');
+  loadMyBookings(s.token);
+}
+
+function closeMyBookings() {
+  document.getElementById('myBookingsPage').classList.remove('show');
+}
+
+async function loadMyBookings(token) {
+  document.getElementById('mbLoading').style.display = 'block';
+  document.getElementById('mbList').innerHTML = '';
+  try {
+    const r = await fetch(`${API}/customers/my-bookings`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (r.status === 401) { signOut(); return; }
+    const d = await r.json();
+    document.getElementById('mbLoading').style.display = 'none';
+    if (d.success && d.data && d.data.length) {
+      renderMyBookings(d.data);
+    } else {
+      document.getElementById('mbList').innerHTML = `
+        <div class="bk-empty">
+          <div class="bk-empty-icon">🏨</div>
+          <p style="font-size:1rem;color:var(--navy);margin-bottom:.5rem;">No bookings found</p>
+          <p style="font-size:.84rem;">We couldn't find any bookings for your account.</p>
+          <button class="mbtn" style="max-width:220px;margin:1.5rem auto 0;" onclick="closeMyBookings();window.scrollTo(0,0)">Browse Rooms</button>
+        </div>`;
+    }
+  } catch(e) {
+    document.getElementById('mbLoading').style.display = 'none';
+    document.getElementById('mbList').innerHTML = `<div class="alert alert-err">Connection error. Please try again.</div>`;
+  }
+}
+
+function renderMyBookings(bookings) {
+  const sc = {Confirmed:'#059669',CheckedIn:'#2563eb',CheckedOut:'#6b7280',Cancelled:'#dc2626',Pending:'#d97706'};
+  document.getElementById('mbList').innerHTML = bookings.map(b => {
+    const statusCls = 'status-' + b.bookingStatus;
+    const canCancel = b.bookingStatus === 'Confirmed';
+    return `
+    <div class="bk-card">
+      <div class="bk-card-head">
+        <span class="bk-ref">${b.bookingReference}</span>
+        <span class="bk-status ${statusCls}">${b.bookingStatus}</span>
+      </div>
+      <div class="bk-card-body">
+        <div>
+          <div class="bk-label">Room Type</div>
+          <div class="bk-val">${b.roomTypeName || '—'}</div>
+        </div>
+        <div>
+          <div class="bk-label">Check-In</div>
+          <div class="bk-val">${fmtDate(b.checkInDate)}</div>
+          <div style="font-size:.75rem;color:var(--gray);margin-top:.1rem;">${b.totalNights} night${b.totalNights>1?'s':''}</div>
+        </div>
+        <div>
+          <div class="bk-label">Check-Out</div>
+          <div class="bk-val">${fmtDate(b.checkOutDate)}</div>
+          <div style="font-size:.75rem;color:var(--gray);margin-top:.1rem;">${b.paymentMode==='PayAtHotel'?'Pay at Hotel':'Paid Online'}</div>
+        </div>
+        <div class="bk-price">
+          <div class="bk-label">Total</div>
+          <div class="bk-val">₹${Math.round(b.grandTotal).toLocaleString('en-IN')}</div>
+          ${canCancel ? `<button class="bk-cancel-btn" onclick="cancelMyBooking(${b.bookingId},'${b.bookingReference}')">Cancel</button>` : ''}
+        </div>
+      </div>
+      ${b.specialRequests ? `<div style="padding:.5rem 1.3rem 1rem;font-size:.8rem;color:var(--gray);border-top:1px solid #f3f0ea;">📝 ${b.specialRequests}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+async function cancelMyBooking(id, ref) {
+  if (!confirm(`Cancel booking ${ref}?\n\nCancellation charges may apply.`)) return;
+  const reason = prompt('Reason for cancellation (optional):') || 'Guest requested cancellation';
+  const s = getSession();
+  try {
+    const r = await fetch(`${API}/bookings/${id}/cancel`, {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'Authorization': `Bearer ${s?.token}` },
+      body: JSON.stringify({ bookingId: id, reason })
+    });
+    const d = await r.json();
+    if (d.success) {
+      alert(`Booking cancelled.\nCancellation charge: ₹${d.data?.cancellationCharge || 0}`);
+      loadMyBookings(s.token);
+    } else {
+      alert(d.message || 'Cancellation failed.');
+    }
+  } catch(e) { alert('Error. Please call the hotel directly.'); }
+}
+
+// ── INIT ───────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+  const fmt = d => d.toISOString().split('T')[0];
+  document.getElementById('wIn').min   = fmt(today);
+  document.getElementById('wIn').value = fmt(today);
+  document.getElementById('wOut').min   = fmt(tomorrow);
+  document.getElementById('wOut').value = fmt(tomorrow);
+
+  updateNavAuth();   // restore sign-in state from localStorage
+  loadHotelInfo();
+  loadRoomTypes();
+});
+
+// ── HOTEL INFO ─────────────────────────────────────────────────────────────
+const AMENITY_ICONS = {
+  'Fine Dining':'🍽️','Restaurant':'🍽️','Infinity Pool':'🏊','Pool':'🏊',
+  'Luxury Spa':'💆','Spa':'💆','Fitness Centre':'🏋️','Gym':'🏋️',
+  'Valet Parking':'🚗','Parking':'🚗','Concierge':'🤝','Bar':'🍸',
+  'Lounge':'🛋️','Business Centre':'💼','Conference Room':'🏛️',
+  'Kids Club':'👶','Pet Friendly':'🐾','WiFi':'📶',
+  'Airport Transfer':'🚌','Laundry':'👔','Room Service':'🛎️'
+};
+
+async function loadHotelInfo() {
+  try {
+    const [hotelRes, settingsRes] = await Promise.all([
+      fetch(`${API}/hotels/1`).then(r => r.json()).catch(() => null),
+      fetch(`${API}/settings`).then(r => r.json()).catch(() => null)
+    ]);
+    const h  = (hotelRes?.success  && hotelRes.data)  ? hotelRes.data  : {};
+    const ss = parseSettings((settingsRes?.success && settingsRes.data) ? settingsRes.data : []);
+    const name         = h.hotelName    || ss['hotel.name']    || 'The Sapphire Suits';
+    const city         = h.city         || ss['hotel.city']    || '';
+    const state        = h.state        || ss['hotel.state']   || '';
+    const country      = h.country      || ss['hotel.country'] || '';
+    const address      = h.address      || ss['hotel.address'] || '';
+    const phone        = h.phone        || ss['hotel.phone']   || '';
+    const email        = h.email        || ss['hotel.email']   || '';
+    const website      = h.website      || ss['hotel.website'] || '';
+    const starRating   = h.starRating   || parseInt(ss['hotel.starRating']||'0') || 0;
+    const checkInTime  = h.checkInTime  || ss['hotel.checkInTime']  || '';
+    const checkOutTime = h.checkOutTime || ss['hotel.checkOutTime'] || '';
+    const cancelHrs    = h.cancellationPolicyHours ?? (parseInt(ss['hotel.cancellationPolicyHours']||ss['cancellation.policyHours']||'') || null);
+    const taxPct       = h.taxPercent   ?? (parseFloat(ss['hotel.taxPercent']||ss['tax.percent']||ss['DefaultTaxPercent']||'') || null);
+    const description  = h.description || ss['hotel.description'] || '';
+    const tagline      = ss['site.tagline']  || ss['hotel.tagline'] || description || '';
+    const heroTitle    = ss['site.heroTitle']|| ss['hero.title']    || '';
+    const heroSub      = ss['site.heroSub']  || ss['hero.subtitle'] || tagline;
+    const logoText     = ss['site.logoText'] || name;
+    const logoSub      = ss['site.logoSub']  || '';
+    const footerDesc   = ss['site.footerDesc']|| description;
+    const copyright    = ss['site.copyright']|| '';
+    const loc   = [city, state].filter(Boolean).join(', ');
+    const stars = starRating ? '★'.repeat(starRating) + ' Star Hotel' : 'Luxury Hotel';
+    document.getElementById('pageTitle').textContent    = `${name}${loc ? ' — ' + loc : ''} | ${stars}`;
+    document.getElementById('navHotelName').textContent = logoText;
+    document.getElementById('navHotelSub').textContent  = logoSub || (loc ? `— ${stars}, ${loc}` : stars);
+    document.getElementById('heroCity').textContent = city || name;
+    if (heroTitle) document.getElementById('heroTitle').innerHTML = heroTitle.replace(/\*(.+?)\*/g, '<em>$1</em>');
+    if (heroSub)   document.getElementById('heroTagline').textContent = heroSub;
+    document.getElementById('footerHotelName').textContent = name;
+    const addrParts = [address, city, state, country].filter(Boolean);
+    document.getElementById('footerContact').innerHTML =
+      (addrParts.length ? addrParts.join(', ') : '')
+      + (phone   ? `<br><br>📞 ${phone}` : '')
+      + (email   ? `<br>✉️ <a href="mailto:${email}" style="color:rgba(255,255,255,.45)">${email}</a>` : '')
+      + (website ? `<br>🌐 <a href="${website}" style="color:rgba(255,255,255,.45)" target="_blank">${website}</a>` : '')
+      + (footerDesc ? `<br><br><em style="color:rgba(255,255,255,.28);font-size:.78rem">${footerDesc}</em>` : '');
+    document.getElementById('polCheckIn').textContent  = checkInTime  ? `Check-In: ${fmtTime(checkInTime)}`   : (ss['policy.checkIn']       || 'Check-In: 2:00 PM');
+    document.getElementById('polCheckOut').textContent = checkOutTime ? `Check-Out: ${fmtTime(checkOutTime)}` : (ss['policy.checkOut']      || 'Check-Out: 11:00 AM');
+    document.getElementById('polCancel').textContent   = cancelHrs != null ? `Free cancellation ${cancelHrs}hrs prior` : (ss['policy.cancellation'] || 'Free cancellation 24hrs prior');
+    document.getElementById('polGst').textContent      = taxPct != null ? `GST ${taxPct}% applicable` : (ss['policy.gst']||ss['policy.tax']||'GST applicable');
+    document.getElementById('footerCopy').textContent  = copyright || `© ${new Date().getFullYear()} ${name}. All rights reserved.`;
+    let amenList = [];
+    if (ss['site.amenities']) { try { amenList = JSON.parse(ss['site.amenities']); } catch(e) {} }
+    if (!amenList.length && h.amenities) { try { amenList = JSON.parse(h.amenities); } catch(e) {} }
+    renderAmenities(amenList);
+  } catch(e) { console.warn('loadHotelInfo error:', e); renderAmenities([]); }
+}
+
+function renderAmenities(list) {
+  const defaults = [
+    {name:'Fine Dining',   description:'Award-winning restaurant serving Indian and international cuisine.'},
+    {name:'Infinity Pool', description:'Rooftop pool with breathtaking panoramic views.'},
+    {name:'Luxury Spa',    description:'Full-service spa offering Ayurvedic and wellness therapies.'},
+    {name:'Fitness Centre',description:'State-of-the-art gym open 24/7 with personal trainers.'},
+    {name:'Valet Parking', description:'Complimentary valet parking for all suite guests.'},
+    {name:'Concierge',     description:'24/7 concierge team to curate every aspect of your stay.'},
+  ];
+  const items = list.length ? list : defaults;
+  document.getElementById('amenitiesGrid').innerHTML = items.map(a => {
+    const icon = AMENITY_ICONS[a.name] || '✨';
+    return `<div class="feat"><div class="feat-icon">${icon}</div><div class="feat-name">${a.name}</div><div class="feat-txt">${a.description||''}</div></div>`;
+  }).join('');
+}
+
+// ── ROOM TYPES ─────────────────────────────────────────────────────────────
+async function loadRoomTypes() {
+  try {
+    const r = await fetch(`${API}/room-types?hotelId=1`);
+    const d = await r.json();
+    if (d.success) renderRooms(d.data, null);
+  } catch(e) { console.warn('loadRoomTypes error:', e); }
+}
+
+async function searchRooms() {
+  const ci = document.getElementById('wIn').value;
+  const co = document.getElementById('wOut').value;
+  if (!ci || !co) { showMsg('wMsg', 'Please select check-in and check-out dates', 'err'); return; }
+  if (co <= ci)   { showMsg('wMsg', 'Check-out must be after check-in', 'err'); return; }
+  clearMsg('wMsg');
+  try {
+    const r = await fetch(`${API}/room-types?hotelId=1`);
+    const d = await r.json();
+    if (!d.success) return;
+    renderRooms(d.data, {ci, co});
+    document.getElementById('rooms').scrollIntoView({behavior:'smooth'});
+  } catch(e) { showMsg('wMsg', 'Could not connect to server. Please try again.', 'err'); }
+}
+
+async function renderRooms(types, dates) {
+  const grid = document.getElementById('roomsGrid');
+  if (!types || !types.length) {
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--gray);">No room types available.</div>';
+    return;
+  }
+  if (dates) {
+    grid.innerHTML = types.map(() =>
+      `<div class="rcard" style="pointer-events:none;opacity:.6;">
+        <div class="rthumb" style="background:linear-gradient(135deg,#1a2f46,#2d4a6e);">
+          <span class="ri" style="font-size:4.5rem;opacity:.25;">🏨</span>
+        </div>
+        <div class="rbody" style="padding:1.4rem;">
+          <div style="background:#eee;height:1.2rem;width:60%;border-radius:4px;margin-bottom:.5rem;"></div>
+          <div style="background:#f3f3f3;height:.9rem;width:40%;border-radius:4px;margin-bottom:1rem;"></div>
+          <div style="text-align:center;color:var(--gray);font-size:.82rem;"><span class="spin"></span> Loading price…</div>
+        </div>
+      </div>`
+    ).join('');
+  }
+  const ICONS = {'Standard Room':'🛏️','Deluxe Room':'🌟','Suite':'👑','Twin Room':'🛏️🛏️'};
+  const GRADS = {
+    'Standard Room':'linear-gradient(135deg,#1a2f46,#2d4a6e)',
+    'Deluxe Room'  :'linear-gradient(135deg,#1e3a5a,#4a7a9b)',
+    'Suite'        :'linear-gradient(135deg,#0d1b2a,#c9a96e)',
+    'Twin Room'    :'linear-gradient(135deg,#243b55,#3a6082)'
+  };
+  const quotes = {};
+  if (dates) {
+    await Promise.all(types.map(async rt => {
+      try {
+        const r = await fetch(`${API}/bookings/quote`, {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({roomTypeId: rt.roomTypeId, checkInDate: dates.ci, checkOutDate: dates.co})
+        });
+        const q = await r.json();
+        if (q.success) quotes[rt.roomTypeId] = q.data;
+      } catch(e) {}
+    }));
+  }
+  grid.innerHTML = types.map(rt => {
+    const q      = quotes[rt.roomTypeId];
+    let amen = []; try { amen = JSON.parse(rt.amenities || '[]'); } catch(e) {}
+    const avail     = !dates || (q && q.isAvailable);
+    const nights    = (q && q.nights) || 0;
+    const nightRate = q ? Math.round(q.subTotal / Math.max(nights, 1)) : null;
+    const taxRate   = q ? q.taxPercent : null;
+    const icon      = ICONS[rt.typeName] || '🏨';
+    const grad      = GRADS[rt.typeName] || 'linear-gradient(135deg,#1a2f46,#2d4a6e)';
+    const bookFn    = avail ? `openBookModal(${rt.roomTypeId},'${rt.typeName.replace(/'/g,"\\'")}')` : '';
+    return `<div class="rcard" onclick="${bookFn}">
+      <div class="rthumb" style="background:${grad}">
+        <span class="ri">${icon}</span>
+        <span class="rthumb-badge">${rt.maxOccupancy} Guests Max</span>
+        ${dates ? `<span class="rstatus ${avail?'avail':'na'}">${avail?'Available':'Unavailable'}</span>` : ''}
+      </div>
+      <div class="rbody">
+        <div class="rname">${rt.typeName}</div>
+        <div class="rsub">${rt.bedType||''}${rt.sizeInSqFt?' · '+rt.sizeInSqFt+' sqft':''}${rt.viewType?' · '+rt.viewType:''}</div>
+        <div class="ramen">${amen.slice(0,5).map(a=>`<span>${a}</span>`).join('')}</div>
+        <div class="rfooter">
+          <div>
+            <div class="rprice-amt">${nightRate ? '₹'+nightRate.toLocaleString('en-IN') : '—'}</div>
+            <div class="rprice-lbl">per night${taxRate!=null ? ' + '+taxRate+'% GST' : ''}</div>
+            ${q ? `<div class="rprice-total">${nights} night${nights>1?'s':''} total: ₹${Math.round(q.grandTotal).toLocaleString('en-IN')}</div>` : ''}
+          </div>
+          <button class="rbook-btn" ${!avail?'disabled':''} onclick="event.stopPropagation();${bookFn}">${avail?'Reserve':'Unavailable'}</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── BOOKING MODAL ──────────────────────────────────────────────────────────
+async function openBookModal(rtId, rtName) {
+  const ci = document.getElementById('wIn').value;
+  const co = document.getElementById('wOut').value;
+  if (!ci || !co) { alert('Please select check-in and check-out dates first.'); return; }
+  selRoomTypeId = rtId;
+  document.getElementById('mRoomName').textContent = rtName;
+  goStep(1);
+  showModal('bookModal');
+  document.getElementById('quoteLoading').style.display = 'block';
+  document.getElementById('quoteBody').style.display = 'none';
+  document.getElementById('qAlert').innerHTML = '';
+
+  // Pre-fill guest info if logged in
+  const s = getSession();
+  if (s) {
+    const [fn, ...rest] = (s.guestName || '').split(' ');
+    document.getElementById('gFN').value    = fn || '';
+    document.getElementById('gLN').value    = rest.join(' ') || '';
+    document.getElementById('gEmail').value = s.email || '';
+  }
+
+  try {
+    const r = await fetch(`${API}/bookings/quote`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({roomTypeId: rtId, checkInDate: ci, checkOutDate: co})
+    });
+    const d = await r.json();
+    selQuote = d.data;
+    if (d.success && selQuote) {
+      if (!selQuote.isAvailable) {
+        document.getElementById('qAlert').innerHTML =
+          `<div class="alert alert-err">❌ ${selQuote.unavailableReason || 'Room not available for selected dates.'}</div>`;
+      } else {
+        renderPriceTable(selQuote);
+      }
+    } else {
+      document.getElementById('qAlert').innerHTML = `<div class="alert alert-err">Failed to get pricing. Please try again.</div>`;
+    }
+  } catch(e) {
+    document.getElementById('qAlert').innerHTML = `<div class="alert alert-err">Cannot connect to server. Please ensure the API is running.</div>`;
+  }
+  document.getElementById('quoteLoading').style.display = 'none';
+  document.getElementById('quoteBody').style.display = 'block';
+}
+
+function renderPriceTable(q) {
+  const rates = q.nightlyRates || [];
+  const nightRows = rates.map(n =>
+    `<div class="nr">
+      <span>${new Date(n.date).toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'})}${n.isWeekend?' 🌟':''}</span>
+      <span>₹${Math.round(n.rate).toLocaleString('en-IN')}</span>
+    </div>`
+  ).join('');
+  document.getElementById('priceTable').innerHTML = `
+    ${nightRows}
+    <div class="pr"><span>Room Subtotal (${q.nights} night${q.nights>1?'s':''})</span><span>₹${Math.round(q.subTotal).toLocaleString('en-IN')}</span></div>
+    <div class="pr"><span>GST (${q.taxPercent}%)</span><span>₹${Math.round(q.taxAmount).toLocaleString('en-IN')}</span></div>
+    <div class="pr tot"><span>Grand Total</span><span>₹${Math.round(q.grandTotal).toLocaleString('en-IN')}</span></div>`;
+}
+
+function goStep(n) {
+  [1,2,3].forEach(i => {
+    document.getElementById(`step${i}`).style.display = i === n ? 'block' : 'none';
+    const s = document.getElementById(`s${i}`);
+    s.className = 'st' + (i === n ? ' act' : i < n ? ' done' : '');
+  });
+}
+
+async function submitBooking() {
+  const fn = document.getElementById('gFN').value.trim();
+  const ln = document.getElementById('gLN').value.trim();
+  const em = document.getElementById('gEmail').value.trim();
+  if (!fn || !ln || !em) { showMsg('gAlert','First name, last name and email are required.','err'); return; }
+  if (!em.includes('@'))  { showMsg('gAlert','Please enter a valid email address.','err'); return; }
+  const payload = {
+    hotelId: 1, roomTypeId: selRoomTypeId,
+    checkInDate:    document.getElementById('wIn').value,
+    checkOutDate:   document.getElementById('wOut').value,
+    adultsCount:    parseInt(document.getElementById('wAdults').value),
+    childrenCount:  parseInt(document.getElementById('wChild').value),
+    paymentMode:    document.getElementById('payMode').value,
+    bookingSource:  'Website',
+    specialRequests:document.getElementById('specReq').value,
+    guestFirstName: fn, guestLastName: ln, guestEmail: em,
+    guestPhone:     document.getElementById('gPhone').value,
+    guestNationality:document.getElementById('gNat').value,
+    guestIDType:    document.getElementById('gIDT').value,
+    guestIDNumber:  document.getElementById('gIDN').value
+  };
+  showMsg('gAlert','<span class="spin"></span> Creating your booking…','ok');
+  try {
+    const r = await fetch(`${API}/bookings`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    const d = await r.json();
+    if (d.success) {
+      document.getElementById('confRef').textContent = d.data.bookingReference;
+      document.getElementById('confDetails').innerHTML = `
+        <div class="pr"><span>Guest</span><span>${fn} ${ln}</span></div>
+        <div class="pr"><span>Room</span><span>${d.data.roomTypeName}</span></div>
+        <div class="pr"><span>Check-In</span><span>${fmtDate(d.data.checkInDate)}</span></div>
+        <div class="pr"><span>Check-Out</span><span>${fmtDate(d.data.checkOutDate)}</span></div>
+        <div class="pr"><span>Total</span><span>₹${Math.round(d.data.grandTotal).toLocaleString('en-IN')}</span></div>
+        <div class="pr"><span>Payment</span><span>${payload.paymentMode==='PayAtHotel'?'Pay at Hotel':'Paid Online'}</span></div>`;
+      goStep(3);
+      // If guest was not logged in, prompt them to sign in to see all bookings
+      const s = getSession();
+      if (!s) {
+        document.getElementById('confDetails').innerHTML +=
+          `<div style="margin-top:1rem;padding:.8rem;background:#faf8f3;border-left:3px solid var(--gold);font-size:.82rem;color:var(--navy);">
+            💡 <strong>Sign in</strong> to your account to view and manage all your bookings in one place.
+            <br><a href="#" onclick="closeModal('bookModal');openAuthModal('signin');return false;" style="color:var(--gold);font-weight:600;text-decoration:none;">Sign in now →</a>
+          </div>`;
+      }
+    } else {
+      showMsg('gAlert', d.message || 'Booking failed. Please try again.', 'err');
+    }
+  } catch(e) {
+    showMsg('gAlert','Network error. Please check your connection.','err');
+  }
+}
+
+// ── TRACK BOOKING (guest, no login required) ────────────────────────────────
+async function trackBooking() {
+  const ref = document.getElementById('trackRef').value.trim().toUpperCase();
+  if (!ref) { showMsg('trackAlert','Please enter your booking reference.','err'); return; }
+  document.getElementById('trackResult').innerHTML =
+    '<div style="text-align:center;padding:1rem;"><span class="spin"></span></div>';
+  clearMsg('trackAlert');
+  try {
+    const r = await fetch(`${API}/bookings/reference/${ref}`);
+    const d = await r.json();
+    if (d.success) {
+      const b = d.data;
+      const sc = {Confirmed:'#059669',Cancelled:'#dc2626',CheckedIn:'#2563eb',CheckedOut:'#6b7280',Pending:'#d97706'};
+      document.getElementById('trackResult').innerHTML = `
+        <div style="border:1px solid #e5e7eb;padding:1.2rem;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+            <strong style="font-family:'Cormorant Garamond',serif;font-size:1.1rem;">${b.bookingReference}</strong>
+            <span style="background:${sc[b.bookingStatus]||'#6b7280'};color:#fff;padding:.2rem .8rem;font-size:.72rem;letter-spacing:1px;text-transform:uppercase;">${b.bookingStatus}</span>
+          </div>
+          <div class="pr"><span>Guest</span><span>${b.guestName}</span></div>
+          <div class="pr"><span>Room Type</span><span>${b.roomTypeName}</span></div>
+          <div class="pr"><span>Check-In</span><span>${fmtDate(b.checkInDate)}</span></div>
+          <div class="pr"><span>Check-Out</span><span>${fmtDate(b.checkOutDate)}</span></div>
+          <div class="pr"><span>Nights</span><span>${b.totalNights}</span></div>
+          <div class="pr tot"><span>Total</span><span>₹${Math.round(b.grandTotal).toLocaleString('en-IN')}</span></div>
+          <div class="pr"><span>Payment</span><span>${b.paymentMode==='PayAtHotel'?'Pay at Hotel':'Paid Online'}</span></div>
+          ${b.bookingStatus==='Confirmed'
+            ? `<button onclick="cancelGuest(${b.bookingId},'${b.bookingReference}')" style="margin-top:1rem;width:100%;padding:.6rem;background:#dc2626;color:#fff;border:none;cursor:pointer;font-family:'Jost',sans-serif;font-size:.78rem;letter-spacing:1px;text-transform:uppercase;">Cancel Booking</button>`
+            : ''}
+        </div>`;
+    } else {
+      document.getElementById('trackResult').innerHTML =
+        `<div class="alert alert-err">Booking not found. Please check your reference number.</div>`;
+    }
+  } catch(e) {
+    document.getElementById('trackResult').innerHTML =
+      `<div class="alert alert-err">Connection error. Please try again.</div>`;
+  }
+}
+
+async function cancelGuest(id, ref) {
+  if (!confirm(`Cancel booking ${ref}?\n\nNote: Cancellation charges may apply based on our policy.`)) return;
+  const reason = prompt('Reason for cancellation (optional):');
+  try {
+    const r = await fetch(`${API}/bookings/${id}/cancel`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({bookingId: id, reason: reason || 'Guest requested cancellation'})
+    });
+    const d = await r.json();
+    if (d.success) {
+      alert(`Booking cancelled.\nCancellation charge: ₹${d.data?.cancellationCharge||0}`);
+      trackBooking();
+    } else { alert(d.message || 'Cancellation failed.'); }
+  } catch(e) { alert('Error. Please call the hotel directly.'); }
+}
+</script>
+</body>
+</html>
