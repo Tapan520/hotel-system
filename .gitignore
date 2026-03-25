@@ -1,0 +1,20 @@
+# .NET build outputs - NEVER commit these
+backend/bin/
+backend/obj/
+
+# Visual Studio / Rider
+*.user
+*.suo
+.vs/
+.idea/
+*.swp
+
+# Environment / secrets (never commit real credentials)
+.env
+.env.local
+*.local
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
