@@ -78,7 +78,46 @@ namespace HotelChannelManager.Services
 
         public DatabaseService(IConfiguration config)
         {
-            _conn = config.GetConnectionString("DefaultConnection")!;
+            // ── Railway connection ────────────────────────────────────────────
+            // Railway MYSQL_PUBLIC_URL ends with /railway (Railway default DB name)
+            // BUT our schema lives in database 'hotelchannelmanager'.
+            // We parse the URL for host/port/credentials, then override the DB name.
+            // Falls back to appsettings.json DefaultConnection for local dev.
+            var mysqlUrl = Environment.GetEnvironmentVariable("MYSQL_PUBLIC_URL")
+                        ?? Environment.GetEnvironmentVariable("DATABASE_URL");
+
+            if (!string.IsNullOrEmpty(mysqlUrl))
+            {
+                // HOTEL_DB_NAME can override; default is hotelchannelmanager
+                var dbName = Environment.GetEnvironmentVariable("HOTEL_DB_NAME")
+                          ?? "hotelchannelmanager";
+                _conn = BuildConnectionStringFromUrl(mysqlUrl, dbName);
+            }
+            else
+            {
+                _conn = config.GetConnectionString("DefaultConnection")!;
+            }
+        }
+
+        /// <summary>
+        /// Parses  mysql://USER:PASSWORD@HOST:PORT/anything
+        /// into a MySql.Data connection string, using dbOverride as the database name.
+        /// </summary>
+        private static string BuildConnectionStringFromUrl(string url, string dbOverride)
+        {
+            var uri      = new Uri(url);
+            var host     = uri.Host;
+            var port     = uri.Port > 0 ? uri.Port : 3306;
+            var userInfo = uri.UserInfo.Split(':', 2);
+            var user     = Uri.UnescapeDataString(userInfo[0]);
+            var password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : "";
+
+            // Use dbOverride — NOT uri.AbsolutePath — so we always hit hotelchannelmanager
+            return $"Server={host};Port={port};Database={dbOverride};" +
+                   $"User={user};Password={password};" +
+                   "SslMode=Preferred;AllowPublicKeyRetrieval=True;CharSet=utf8mb4;" +
+                   "ConnectionTimeout=30;DefaultCommandTimeout=60;" +
+                   "ConvertZeroDateTime=True;AllowZeroDateTime=True;TreatTinyAsBoolean=True;";
         }
 
         private IDbConnection GetDb() => new MySqlConnection(_conn);
