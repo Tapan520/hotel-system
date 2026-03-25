@@ -18,7 +18,7 @@ namespace HotelChannelManager.Services
     //
     //   1. First login:  LastLoginAt is NULL → Dapper maps NULL → DateTime? = null  ✅
     //   2. UpdateLastLogin() sets LastLoginAt = NOW()
-    //   3. Second login: SELECT * FROM Users returns LastLoginAt as MySqlDateTime object
+    //   3. Second login: SELECT * FROM users returns LastLoginAt as MySqlDateTime object
     //   4. Dapper tries to cast MySqlDateTime → DateTime? and throws "Object" mismatch
     //
     // FIX A: Register MySqlDateTimeTypeHandler globally (handles all queries)
@@ -137,13 +137,13 @@ namespace HotelChannelManager.Services
         public async Task<IEnumerable<Hotel>> GetHotels()
         {
             using var db = GetDb();
-            return await db.QueryAsync<Hotel>("SELECT * FROM Hotels WHERE IsActive=1 ORDER BY HotelName");
+            return await db.QueryAsync<Hotel>("SELECT * FROM hotels WHERE IsActive=1 ORDER BY HotelName");
         }
 
         public async Task<Hotel?> GetHotel(int id)
         {
             using var db = GetDb();
-            return await db.QueryFirstOrDefaultAsync<Hotel>("SELECT * FROM Hotels WHERE HotelId=@Id", new { Id = id });
+            return await db.QueryFirstOrDefaultAsync<Hotel>("SELECT * FROM hotels WHERE HotelId=@Id", new { Id = id });
         }
 
         public async Task<int> SaveHotel(Hotel h)
@@ -151,7 +151,7 @@ namespace HotelChannelManager.Services
             using var db = GetDb();
             if (h.HotelId == 0)
                 return await db.ExecuteScalarAsync<int>(
-                    @"INSERT INTO Hotels(HotelName,Address,City,State,Country,ZipCode,Phone,Email,
+                    @"INSERT INTO hotels(HotelName,Address,City,State,Country,ZipCode,Phone,Email,
                       Website,StarRating,CheckInTime,CheckOutTime,CancellationPolicyHours,
                       LateCancelChargePercent,TaxPercent,CurrencyCode,Description)
                       VALUES(@HotelName,@Address,@City,@State,@Country,@ZipCode,@Phone,@Email,
@@ -159,7 +159,7 @@ namespace HotelChannelManager.Services
                       @LateCancelChargePercent,@TaxPercent,@CurrencyCode,@Description);
                       SELECT LAST_INSERT_ID();", h);
             await db.ExecuteAsync(
-                @"UPDATE Hotels SET HotelName=@HotelName,Address=@Address,City=@City,State=@State,
+                @"UPDATE hotels SET HotelName=@HotelName,Address=@Address,City=@City,State=@State,
                   Country=@Country,ZipCode=@ZipCode,Phone=@Phone,Email=@Email,Website=@Website,
                   StarRating=@StarRating,CheckInTime=@CheckInTime,CheckOutTime=@CheckOutTime,
                   CancellationPolicyHours=@CancellationPolicyHours,
@@ -172,7 +172,7 @@ namespace HotelChannelManager.Services
         public async Task<IEnumerable<RoomType>> GetRoomTypes(int? hotelId = null)
         {
             using var db = GetDb();
-            var sql = "SELECT * FROM RoomTypes WHERE IsActive=1" +
+            var sql = "SELECT * FROM roomtypes WHERE IsActive=1" +
                       (hotelId.HasValue ? " AND HotelId=@HotelId" : "") + " ORDER BY SortOrder,TypeName";
             return await db.QueryAsync<RoomType>(sql, new { HotelId = hotelId });
         }
@@ -180,7 +180,7 @@ namespace HotelChannelManager.Services
         public async Task<RoomType?> GetRoomType(int id)
         {
             using var db = GetDb();
-            return await db.QueryFirstOrDefaultAsync<RoomType>("SELECT * FROM RoomTypes WHERE RoomTypeId=@Id", new { Id = id });
+            return await db.QueryFirstOrDefaultAsync<RoomType>("SELECT * FROM roomtypes WHERE RoomTypeId=@Id", new { Id = id });
         }
 
         public async Task<int> SaveRoomType(RoomType rt)
@@ -188,11 +188,11 @@ namespace HotelChannelManager.Services
             using var db = GetDb();
             if (rt.RoomTypeId == 0)
                 return await db.ExecuteScalarAsync<int>(
-                    @"INSERT INTO RoomTypes(HotelId,TypeName,Description,MaxOccupancy,BedType,SizeInSqFt,ViewType,Amenities,SortOrder)
+                    @"INSERT INTO roomtypes(HotelId,TypeName,Description,MaxOccupancy,BedType,SizeInSqFt,ViewType,Amenities,SortOrder)
                       VALUES(@HotelId,@TypeName,@Description,@MaxOccupancy,@BedType,@SizeInSqFt,@ViewType,@Amenities,@SortOrder);
                       SELECT LAST_INSERT_ID();", rt);
             await db.ExecuteAsync(
-                @"UPDATE RoomTypes SET TypeName=@TypeName,Description=@Description,MaxOccupancy=@MaxOccupancy,
+                @"UPDATE roomtypes SET TypeName=@TypeName,Description=@Description,MaxOccupancy=@MaxOccupancy,
                   BedType=@BedType,SizeInSqFt=@SizeInSqFt,ViewType=@ViewType,Amenities=@Amenities,
                   SortOrder=@SortOrder,IsActive=@IsActive WHERE RoomTypeId=@RoomTypeId", rt);
             return rt.RoomTypeId;
@@ -202,8 +202,8 @@ namespace HotelChannelManager.Services
         public async Task<IEnumerable<Room>> GetRooms(int? hotelId = null, int? rtId = null)
         {
             using var db = GetDb();
-            var sql = @"SELECT r.*,rt.TypeName FROM Rooms r
-                        JOIN RoomTypes rt ON rt.RoomTypeId=r.RoomTypeId WHERE r.IsActive=1";
+            var sql = @"SELECT r.*,rt.TypeName FROM rooms r
+                        JOIN roomtypes rt ON rt.RoomTypeId=r.RoomTypeId WHERE r.IsActive=1";
             if (hotelId.HasValue) sql += " AND r.HotelId=@HotelId";
             if (rtId.HasValue)    sql += " AND r.RoomTypeId=@RtId";
             sql += " ORDER BY r.Floor,r.RoomNumber";
@@ -215,10 +215,10 @@ namespace HotelChannelManager.Services
             using var db = GetDb();
             if (r.RoomId == 0)
                 return await db.ExecuteScalarAsync<int>(
-                    @"INSERT INTO Rooms(HotelId,RoomTypeId,RoomNumber,Floor,Notes)
+                    @"INSERT INTO rooms(HotelId,RoomTypeId,RoomNumber,Floor,Notes)
                       VALUES(@HotelId,@RoomTypeId,@RoomNumber,@Floor,@Notes); SELECT LAST_INSERT_ID();", r);
             await db.ExecuteAsync(
-                "UPDATE Rooms SET RoomTypeId=@RoomTypeId,RoomNumber=@RoomNumber,Floor=@Floor,Status=@Status,Notes=@Notes,IsActive=@IsActive WHERE RoomId=@RoomId", r);
+                "UPDATE rooms SET RoomTypeId=@RoomTypeId,RoomNumber=@RoomNumber,Floor=@Floor,Status=@Status,Notes=@Notes,IsActive=@IsActive WHERE RoomId=@RoomId", r);
             return r.RoomId;
         }
 
@@ -227,7 +227,7 @@ namespace HotelChannelManager.Services
         {
             using var db = GetDb();
             return await db.QueryAsync<RoomRate>(
-                "SELECT * FROM RoomRates WHERE RoomTypeId=@RtId AND RateDate BETWEEN @From AND @To ORDER BY RateDate",
+                "SELECT * FROM roomrates WHERE RoomTypeId=@RtId AND RateDate BETWEEN @From AND @To ORDER BY RateDate",
                 new { RtId = rtId, From = from, To = to });
         }
 
@@ -238,7 +238,7 @@ namespace HotelChannelManager.Services
             while (d <= req.ToDate)
             {
                 await db.ExecuteAsync(
-                    @"INSERT INTO RoomRates(RoomTypeId,RateDate,BaseRate,SpecialRate,IsAvailable,MinNights,Notes)
+                    @"INSERT INTO roomrates(RoomTypeId,RateDate,BaseRate,SpecialRate,IsAvailable,MinNights,Notes)
                       VALUES(@RtId,@Date,@Base,@Special,@Avail,@Min,@Notes)
                       ON DUPLICATE KEY UPDATE BaseRate=@Base,SpecialRate=@Special,IsAvailable=@Avail,MinNights=@Min,Notes=@Notes",
                     new { RtId=req.RoomTypeId, Date=d, Base=req.BaseRate, Special=req.SpecialRate,
@@ -250,7 +250,7 @@ namespace HotelChannelManager.Services
         public async Task<IEnumerable<DefaultRoomRate>> GetDefaultRates(int? rtId = null)
         {
             using var db = GetDb();
-            var sql = "SELECT dr.*,rt.TypeName FROM DefaultRoomRates dr JOIN RoomTypes rt ON rt.RoomTypeId=dr.RoomTypeId WHERE 1=1";
+            var sql = "SELECT dr.*,rt.TypeName FROM defaultroomrates dr JOIN roomtypes rt ON rt.RoomTypeId=dr.RoomTypeId WHERE 1=1";
             if (rtId.HasValue) sql += " AND dr.RoomTypeId=@RtId";
             return await db.QueryAsync<DefaultRoomRate>(sql + " ORDER BY dr.EffectiveFrom DESC", new { RtId = rtId });
         }
@@ -260,10 +260,10 @@ namespace HotelChannelManager.Services
             using var db = GetDb();
             if (dr.DefaultRateId == 0)
                 return await db.ExecuteScalarAsync<int>(
-                    @"INSERT INTO DefaultRoomRates(RoomTypeId,WeekdayRate,WeekendRate,EffectiveFrom,EffectiveTo)
+                    @"INSERT INTO defaultroomrates(RoomTypeId,WeekdayRate,WeekendRate,EffectiveFrom,EffectiveTo)
                       VALUES(@RoomTypeId,@WeekdayRate,@WeekendRate,@EffectiveFrom,@EffectiveTo); SELECT LAST_INSERT_ID();", dr);
             await db.ExecuteAsync(
-                "UPDATE DefaultRoomRates SET WeekdayRate=@WeekdayRate,WeekendRate=@WeekendRate,EffectiveFrom=@EffectiveFrom,EffectiveTo=@EffectiveTo WHERE DefaultRateId=@DefaultRateId", dr);
+                "UPDATE defaultroomrates SET WeekdayRate=@WeekdayRate,WeekendRate=@WeekendRate,EffectiveFrom=@EffectiveFrom,EffectiveTo=@EffectiveTo WHERE DefaultRateId=@DefaultRateId", dr);
             return dr.DefaultRateId;
         }
 
@@ -271,8 +271,8 @@ namespace HotelChannelManager.Services
         public async Task<IEnumerable<RoomAvailability>> GetAvailability(int? rtId, DateTime from, DateTime to)
         {
             using var db = GetDb();
-            var sql = @"SELECT ra.*,rt.TypeName FROM RoomAvailability ra
-                        JOIN RoomTypes rt ON rt.RoomTypeId=ra.RoomTypeId
+            var sql = @"SELECT ra.*,rt.TypeName FROM roomavailability ra
+                        JOIN roomtypes rt ON rt.RoomTypeId=ra.RoomTypeId
                         WHERE ra.AvailDate BETWEEN @From AND @To";
             if (rtId.HasValue) sql += " AND ra.RoomTypeId=@RtId";
             sql += " ORDER BY ra.AvailDate,rt.SortOrder";
@@ -286,7 +286,7 @@ namespace HotelChannelManager.Services
             while (d <= req.ToDate)
             {
                 await db.ExecuteAsync(
-                    "UPDATE RoomAvailability SET BlockedRooms=LEAST(BlockedRooms+@Count,TotalRooms) WHERE RoomTypeId=@RtId AND AvailDate=@Date",
+                    "UPDATE roomavailability SET BlockedRooms=LEAST(BlockedRooms+@Count,TotalRooms) WHERE RoomTypeId=@RtId AND AvailDate=@Date",
                     new { RtId=req.RoomTypeId, Date=d, Count=req.BlockCount });
                 d = d.AddDays(1);
             }
@@ -299,7 +299,7 @@ namespace HotelChannelManager.Services
             while (d <= req.ToDate)
             {
                 await db.ExecuteAsync(
-                    "UPDATE RoomAvailability SET BlockedRooms=GREATEST(BlockedRooms-@Count,0) WHERE RoomTypeId=@RtId AND AvailDate=@Date",
+                    "UPDATE roomavailability SET BlockedRooms=GREATEST(BlockedRooms-@Count,0) WHERE RoomTypeId=@RtId AND AvailDate=@Date",
                     new { RtId=req.RoomTypeId, Date=d, Count=req.BlockCount });
                 d = d.AddDays(1);
             }
@@ -309,14 +309,14 @@ namespace HotelChannelManager.Services
         public async Task<IEnumerable<ChannelPartner>> GetChannelPartners(int hotelId, bool? activeOnly = true)
         {
             using var db = GetDb();
-            var sql = "SELECT * FROM ChannelPartners WHERE HotelId=@HId" + (activeOnly == true ? " AND IsActive=1" : "");
+            var sql = "SELECT * FROM channelpartners WHERE HotelId=@HId" + (activeOnly == true ? " AND IsActive=1" : "");
             return await db.QueryAsync<ChannelPartner>(sql + " ORDER BY PartnerName", new { HId = hotelId });
         }
 
         public async Task<ChannelPartner?> GetChannelPartner(int id)
         {
             using var db = GetDb();
-            return await db.QueryFirstOrDefaultAsync<ChannelPartner>("SELECT * FROM ChannelPartners WHERE PartnerId=@Id", new { Id = id });
+            return await db.QueryFirstOrDefaultAsync<ChannelPartner>("SELECT * FROM channelpartners WHERE PartnerId=@Id", new { Id = id });
         }
 
         public async Task<int> SaveChannelPartner(ChannelPartner cp)
@@ -324,14 +324,14 @@ namespace HotelChannelManager.Services
             using var db = GetDb();
             if (cp.PartnerId == 0)
                 return await db.ExecuteScalarAsync<int>(
-                    @"INSERT INTO ChannelPartners(HotelId,PartnerName,PartnerCode,PartnerType,Description,APIKey,APISecret,
+                    @"INSERT INTO channelpartners(HotelId,PartnerName,PartnerCode,PartnerType,Description,APIKey,APISecret,
                       WebhookURL,CommissionPercent,PaymentMode,RemittanceDays,ContractStartDate,ContractEndDate,
                       ContactName,ContactEmail,ContactPhone)
                       VALUES(@HotelId,@PartnerName,@PartnerCode,@PartnerType,@Description,@APIKey,@APISecret,
                       @WebhookURL,@CommissionPercent,@PaymentMode,@RemittanceDays,@ContractStartDate,@ContractEndDate,
                       @ContactName,@ContactEmail,@ContactPhone); SELECT LAST_INSERT_ID();", cp);
             await db.ExecuteAsync(
-                @"UPDATE ChannelPartners SET PartnerName=@PartnerName,PartnerType=@PartnerType,Description=@Description,
+                @"UPDATE channelpartners SET PartnerName=@PartnerName,PartnerType=@PartnerType,Description=@Description,
                   APIKey=@APIKey,APISecret=@APISecret,WebhookURL=@WebhookURL,CommissionPercent=@CommissionPercent,
                   PaymentMode=@PaymentMode,RemittanceDays=@RemittanceDays,ContractStartDate=@ContractStartDate,
                   ContractEndDate=@ContractEndDate,ContactName=@ContactName,ContactEmail=@ContactEmail,
@@ -343,9 +343,9 @@ namespace HotelChannelManager.Services
         {
             using var db = GetDb();
             return await db.QueryAsync<ChannelRateMapping>(
-                @"SELECT crm.*,cp.PartnerName,rt.TypeName FROM ChannelRateMappings crm
-                  JOIN ChannelPartners cp ON cp.PartnerId=crm.PartnerId
-                  JOIN RoomTypes rt ON rt.RoomTypeId=crm.RoomTypeId
+                @"SELECT crm.*,cp.PartnerName,rt.TypeName FROM channelratemappings crm
+                  JOIN channelpartners cp ON cp.PartnerId=crm.PartnerId
+                  JOIN roomtypes rt ON rt.RoomTypeId=crm.RoomTypeId
                   WHERE crm.IsActive=1" + (partnerId.HasValue ? " AND crm.PartnerId=@PId" : "") +
                   " ORDER BY cp.PartnerName,rt.TypeName",
                 new { PId = partnerId });
@@ -355,7 +355,7 @@ namespace HotelChannelManager.Services
         {
             using var db = GetDb();
             await db.ExecuteAsync(
-                @"INSERT INTO ChannelRateMappings(PartnerId,RoomTypeId,MarkupPercent)
+                @"INSERT INTO channelratemappings(PartnerId,RoomTypeId,MarkupPercent)
                   VALUES(@PartnerId,@RoomTypeId,@MarkupPercent)
                   ON DUPLICATE KEY UPDATE MarkupPercent=@MarkupPercent,IsActive=1", m);
         }
@@ -364,13 +364,13 @@ namespace HotelChannelManager.Services
         public async Task<Customer?> FindCustomerByEmail(string email)
         {
             using var db = GetDb();
-            return await db.QueryFirstOrDefaultAsync<Customer>("SELECT * FROM Customers WHERE Email=@Email", new { Email = email });
+            return await db.QueryFirstOrDefaultAsync<Customer>("SELECT * FROM customers WHERE Email=@Email", new { Email = email });
         }
 
         public async Task<Customer?> GetCustomer(int id)
         {
             using var db = GetDb();
-            return await db.QueryFirstOrDefaultAsync<Customer>("SELECT * FROM Customers WHERE CustomerId=@Id", new { Id = id });
+            return await db.QueryFirstOrDefaultAsync<Customer>("SELECT * FROM customers WHERE CustomerId=@Id", new { Id = id });
         }
 
         public async Task<(IEnumerable<Customer> items, int total)> SearchCustomers(string? q, int page, int size)
@@ -379,9 +379,9 @@ namespace HotelChannelManager.Services
             var where = "WHERE 1=1";
             if (!string.IsNullOrEmpty(q))
                 where += " AND (FirstName LIKE @Q OR LastName LIKE @Q OR Email LIKE @Q OR Phone LIKE @Q OR IDNumber LIKE @Q)";
-            var total = await db.ExecuteScalarAsync<int>($"SELECT COUNT(*) FROM Customers {where}", new { Q = $"%{q}%" });
+            var total = await db.ExecuteScalarAsync<int>($"SELECT COUNT(*) FROM customers {where}", new { Q = $"%{q}%" });
             var items = await db.QueryAsync<Customer>(
-                $"SELECT * FROM Customers {where} ORDER BY TotalStays DESC,CreatedAt DESC LIMIT {size} OFFSET {(page-1)*size}",
+                $"SELECT * FROM customers {where} ORDER BY TotalStays DESC,CreatedAt DESC LIMIT {size} OFFSET {(page-1)*size}",
                 new { Q = $"%{q}%" });
             return (items, total);
         }
@@ -394,13 +394,13 @@ namespace HotelChannelManager.Services
                 var existing = await FindCustomerByEmail(c.Email);
                 if (existing != null) return existing.CustomerId;
                 return await db.ExecuteScalarAsync<int>(
-                    @"INSERT INTO Customers(FirstName,LastName,Email,Phone,AlternatePhone,Address,City,State,Country,
+                    @"INSERT INTO customers(FirstName,LastName,Email,Phone,AlternatePhone,Address,City,State,Country,
                       ZipCode,IDType,IDNumber,Nationality,Gender)
                       VALUES(@FirstName,@LastName,@Email,@Phone,@AlternatePhone,@Address,@City,@State,@Country,
                       @ZipCode,@IDType,@IDNumber,@Nationality,@Gender); SELECT LAST_INSERT_ID();", c);
             }
             await db.ExecuteAsync(
-                @"UPDATE Customers SET FirstName=@FirstName,LastName=@LastName,Phone=@Phone,AlternatePhone=@AlternatePhone,
+                @"UPDATE customers SET FirstName=@FirstName,LastName=@LastName,Phone=@Phone,AlternatePhone=@AlternatePhone,
                   Address=@Address,City=@City,State=@State,Country=@Country,ZipCode=@ZipCode,IDType=@IDType,
                   IDNumber=@IDNumber,Nationality=@Nationality,Gender=@Gender,VIPStatus=@VIPStatus,Notes=@Notes
                   WHERE CustomerId=@CustomerId", c);
@@ -431,20 +431,20 @@ namespace HotelChannelManager.Services
 
             // 3. Availability check + auto-provision missing rows
             var activeRooms = await db.ExecuteScalarAsync<int>(
-                "SELECT COUNT(*) FROM Rooms WHERE RoomTypeId=@RtId AND Status='Available'",
+                "SELECT COUNT(*) FROM rooms WHERE RoomTypeId=@RtId AND Status='Available'",
                 new { RtId = req.RoomTypeId });
 
             for (var d = checkIn; d < checkOut; d = d.AddDays(1))
             {
                 // Insert row if missing (safe — ON DUPLICATE KEY does nothing to existing)
                 await db.ExecuteAsync(@"
-                    INSERT INTO RoomAvailability(RoomTypeId,AvailDate,TotalRooms,BlockedRooms,BookedRooms)
+                    INSERT INTO roomavailability(RoomTypeId,AvailDate,TotalRooms,BlockedRooms,BookedRooms)
                     VALUES(@RtId,@D,@Total,0,0)
                     ON DUPLICATE KEY UPDATE TotalRooms=IF(TotalRooms=0,@Total,TotalRooms)",
                     new { RtId = req.RoomTypeId, D = d, Total = activeRooms });
 
                 var avail = await db.QueryFirstOrDefaultAsync<dynamic>(
-                    "SELECT TotalRooms,BlockedRooms,BookedRooms FROM RoomAvailability WHERE RoomTypeId=@RtId AND AvailDate=@D",
+                    "SELECT TotalRooms,BlockedRooms,BookedRooms FROM roomavailability WHERE RoomTypeId=@RtId AND AvailDate=@D",
                     new { RtId = req.RoomTypeId, D = d });
 
                 if (avail == null) return (0, "", $"ERROR: No availability record for {d:yyyy-MM-dd}");
@@ -455,7 +455,7 @@ namespace HotelChannelManager.Services
 
             // 4. Fetch hotel tax rate (capped at 50%)
             var hotel = await db.QueryFirstOrDefaultAsync<dynamic>(
-                "SELECT TaxPercent FROM Hotels WHERE HotelId=@HId",
+                "SELECT TaxPercent FROM hotels WHERE HotelId=@HId",
                 new { HId = req.HotelId });
             decimal taxPct = hotel != null ? Math.Min((decimal)hotel.TaxPercent, 50m) : 12m;
 
@@ -464,7 +464,7 @@ namespace HotelChannelManager.Services
             if (req.PartnerId.HasValue && req.PartnerId > 0)
             {
                 var partner = await db.QueryFirstOrDefaultAsync<dynamic>(
-                    "SELECT CommissionPercent FROM ChannelPartners WHERE PartnerId=@PId",
+                    "SELECT CommissionPercent FROM channelpartners WHERE PartnerId=@PId",
                     new { PId = req.PartnerId });
                 if (partner != null) commPct = (decimal)partner.CommissionPercent;
             }
@@ -485,7 +485,7 @@ namespace HotelChannelManager.Services
             // 7. Generate booking reference and insert
             var bookingRef = $"BK{DateTime.UtcNow:yyyyMMddHHmmss}{req.RoomTypeId:D2}";
             var bookingId  = await db.ExecuteScalarAsync<int>(@"
-                INSERT INTO Bookings
+                INSERT INTO bookings
                   (HotelId,RoomTypeId,CustomerId,PartnerId,BookingReference,
                    CheckInDate,CheckOutDate,AdultsCount,ChildrenCount,
                    RoomRate,SubTotal,TaxAmount,DiscountAmount,GrandTotal,
@@ -516,12 +516,12 @@ namespace HotelChannelManager.Services
             // 8. Decrement availability for each night
             for (var d = checkIn; d < checkOut; d = d.AddDays(1))
                 await db.ExecuteAsync(
-                    "UPDATE RoomAvailability SET BookedRooms=BookedRooms+1 WHERE RoomTypeId=@RtId AND AvailDate=@D",
+                    "UPDATE roomavailability SET BookedRooms=BookedRooms+1 WHERE RoomTypeId=@RtId AND AvailDate=@D",
                     new { RtId = req.RoomTypeId, D = d });
 
             // 9. Increment customer total stays
             await db.ExecuteAsync(
-                "UPDATE Customers SET TotalStays=TotalStays+1 WHERE CustomerId=@CId",
+                "UPDATE customers SET TotalStays=TotalStays+1 WHERE CustomerId=@CId",
                 new { CId = custId });
 
             return (bookingId, bookingRef, $"SUCCESS: Booking {bookingRef} confirmed");
@@ -539,7 +539,7 @@ namespace HotelChannelManager.Services
             // Daily override first
             var daily = await db.QueryFirstOrDefaultAsync<dynamic>(
                 @"SELECT COALESCE(SpecialRate,BaseRate) AS Rate
-                  FROM RoomRates
+                  FROM roomrates
                   WHERE RoomTypeId=@RtId AND RateDate=@D AND IsAvailable=1
                   LIMIT 1",
                 new { RtId = roomTypeId, D = date });
@@ -549,7 +549,7 @@ namespace HotelChannelManager.Services
                 if (partnerId.HasValue && partnerId > 0)
                 {
                     var map = await db.QueryFirstOrDefaultAsync<dynamic>(
-                        "SELECT MarkupPercent FROM ChannelRateMappings WHERE PartnerId=@PId AND RoomTypeId=@RtId LIMIT 1",
+                        "SELECT MarkupPercent FROM channelratemappings WHERE PartnerId=@PId AND RoomTypeId=@RtId LIMIT 1",
                         new { PId = partnerId, RtId = roomTypeId });
                     if (map != null) rate *= 1m + (decimal)map.MarkupPercent / 100m;
                 }
@@ -559,7 +559,7 @@ namespace HotelChannelManager.Services
             // Default rate fallback (weekday vs weekend)
             bool isWeekend = date.DayOfWeek == DayOfWeek.Friday || date.DayOfWeek == DayOfWeek.Saturday;
             var def = await db.QueryFirstOrDefaultAsync<dynamic>(
-                @"SELECT WeekdayRate,WeekendRate FROM DefaultRoomRates
+                @"SELECT WeekdayRate,WeekendRate FROM defaultroomrates
                   WHERE RoomTypeId=@RtId AND EffectiveFrom<=@D
                     AND (EffectiveTo IS NULL OR EffectiveTo>=@D)
                   ORDER BY EffectiveFrom DESC LIMIT 1",
@@ -572,7 +572,7 @@ namespace HotelChannelManager.Services
                 if (partnerId.HasValue && partnerId > 0)
                 {
                     var map = await db.QueryFirstOrDefaultAsync<dynamic>(
-                        "SELECT MarkupPercent FROM ChannelRateMappings WHERE PartnerId=@PId AND RoomTypeId=@RtId LIMIT 1",
+                        "SELECT MarkupPercent FROM channelratemappings WHERE PartnerId=@PId AND RoomTypeId=@RtId LIMIT 1",
                         new { PId = partnerId, RtId = roomTypeId });
                     if (map != null) rate *= 1m + (decimal)map.MarkupPercent / 100m;
                 }
@@ -637,14 +637,14 @@ namespace HotelChannelManager.Services
             if (status == "CheckedIn")  updates += ",CheckedInAt=NOW()";
             if (status == "CheckedOut") updates += ",CheckedOutAt=NOW()";
             if (roomId.HasValue)        updates += ",RoomId=@RoomId";
-            await db.ExecuteAsync($"UPDATE Bookings SET {updates} WHERE BookingId=@Id",
+            await db.ExecuteAsync($"UPDATE bookings SET {updates} WHERE BookingId=@Id",
                 new { Id = id, Status = status, RoomId = roomId });
         }
 
         public async Task UpdateBookingNotes(int id, string? notes)
         {
             using var db = GetDb();
-            await db.ExecuteAsync("UPDATE Bookings SET InternalNotes=@Notes WHERE BookingId=@Id", new { Id = id, Notes = notes });
+            await db.ExecuteAsync("UPDATE bookings SET InternalNotes=@Notes WHERE BookingId=@Id", new { Id = id, Notes = notes });
         }
 
         // ── PRICE QUOTE ────────────────────────────────────────────────────
@@ -652,7 +652,7 @@ namespace HotelChannelManager.Services
         {
             using var db = GetDb();
             var rt    = await GetRoomType(req.RoomTypeId);
-            var hotel = await db.QueryFirstOrDefaultAsync<Hotel>("SELECT * FROM Hotels WHERE HotelId=1");
+            var hotel = await db.QueryFirstOrDefaultAsync<Hotel>("SELECT * FROM hotels WHERE HotelId=1");
             var quote = new PriceQuoteResponse {
                 RoomTypeId=req.RoomTypeId, RoomTypeName=rt?.TypeName??"",
                 CheckInDate=req.CheckInDate, CheckOutDate=req.CheckOutDate,
@@ -672,7 +672,7 @@ namespace HotelChannelManager.Services
             {
                 var rate = await GetEffectiveRate(db, req.RoomTypeId, d, req.PartnerId);
                 var avail = await db.ExecuteScalarAsync<int>(
-                    "SELECT COALESCE(TotalRooms-BlockedRooms-BookedRooms,0) FROM RoomAvailability WHERE RoomTypeId=@RtId AND AvailDate=@D",
+                    "SELECT COALESCE(TotalRooms-BlockedRooms-BookedRooms,0) FROM roomavailability WHERE RoomTypeId=@RtId AND AvailDate=@D",
                     new { RtId=req.RoomTypeId, D=d });
                 bool isWknd = d.DayOfWeek==DayOfWeek.Friday||d.DayOfWeek==DayOfWeek.Saturday;
                 quote.NightlyRates.Add(new NightlyRate { Date=d, DayName=d.ToString("ddd dd MMM"), Rate=rate, IsAvailable=avail>0, IsWeekend=isWknd });
@@ -693,13 +693,13 @@ namespace HotelChannelManager.Services
         {
             using var db = GetDb();
             var paymentId = await db.ExecuteScalarAsync<int>(
-                @"INSERT INTO Payments(BookingId,PaymentDate,Amount,PaymentType,PaymentMethod,
+                @"INSERT INTO payments(BookingId,PaymentDate,Amount,PaymentType,PaymentMethod,
                   TransactionRef,GatewayName,GatewayTxnId,Status,Notes,ProcessedBy)
                   VALUES(@BookingId,NOW(),@Amount,@PaymentType,@PaymentMethod,
                   @TransactionRef,@GatewayName,@GatewayTxnId,@Status,@Notes,@ProcessedBy);
                   SELECT LAST_INSERT_ID();", pmt);
             await db.ExecuteAsync(
-                "UPDATE Bookings SET AmountPaid=LEAST(AmountPaid+@Amount,GrandTotal) WHERE BookingId=@BookingId",
+                "UPDATE bookings SET AmountPaid=LEAST(AmountPaid+@Amount,GrandTotal) WHERE BookingId=@BookingId",
                 new { Amount=pmt.Amount, BookingId=pmt.BookingId });
             return paymentId;
         }
@@ -708,8 +708,8 @@ namespace HotelChannelManager.Services
         {
             using var db = GetDb();
             var sql = @"SELECT p.*,b.BookingReference,CONCAT(c.FirstName,' ',c.LastName) AS GuestName
-                        FROM Payments p JOIN Bookings b ON b.BookingId=p.BookingId
-                        JOIN Customers c ON c.CustomerId=b.CustomerId WHERE 1=1";
+                        FROM payments p JOIN bookings b ON b.BookingId=p.BookingId
+                        JOIN customers c ON c.CustomerId=b.CustomerId WHERE 1=1";
             if (bookingId.HasValue) sql += " AND p.BookingId=@BId";
             if (from.HasValue)      sql += " AND p.PaymentDate>=@From";
             if (to.HasValue)        sql += " AND p.PaymentDate<=@To";
@@ -721,8 +721,8 @@ namespace HotelChannelManager.Services
         {
             using var db = GetDb();
             return await db.QueryAsync<PartnerRemittance>(
-                @"SELECT pr.*,cp.PartnerName FROM PartnerRemittances pr
-                  JOIN ChannelPartners cp ON cp.PartnerId=pr.PartnerId WHERE 1=1" +
+                @"SELECT pr.*,cp.PartnerName FROM partnerremittances pr
+                  JOIN channelpartners cp ON cp.PartnerId=pr.PartnerId WHERE 1=1" +
                   (partnerId.HasValue?" AND pr.PartnerId=@PId":"") + " ORDER BY pr.PeriodFrom DESC",
                 new { PId=partnerId });
         }
@@ -732,13 +732,13 @@ namespace HotelChannelManager.Services
             using var db = GetDb();
             if (r.RemittanceId==0)
                 return await db.ExecuteScalarAsync<int>(
-                    @"INSERT INTO PartnerRemittances(PartnerId,PeriodFrom,PeriodTo,TotalBookings,GrossAmount,
+                    @"INSERT INTO partnerremittances(PartnerId,PeriodFrom,PeriodTo,TotalBookings,GrossAmount,
                       CommissionAmount,NetAmount,ReceivedAmount,Status,ExpectedDate,ReceivedDate,TransactionRef,Notes)
                       VALUES(@PartnerId,@PeriodFrom,@PeriodTo,@TotalBookings,@GrossAmount,
                       @CommissionAmount,@NetAmount,@ReceivedAmount,@Status,@ExpectedDate,@ReceivedDate,@TransactionRef,@Notes);
                       SELECT LAST_INSERT_ID();", r);
             await db.ExecuteAsync(
-                "UPDATE PartnerRemittances SET Status=@Status,ReceivedAmount=@ReceivedAmount,ReceivedDate=@ReceivedDate,TransactionRef=@TransactionRef,Notes=@Notes WHERE RemittanceId=@RemittanceId", r);
+                "UPDATE partnerremittances SET Status=@Status,ReceivedAmount=@ReceivedAmount,ReceivedDate=@ReceivedDate,TransactionRef=@TransactionRef,Notes=@Notes WHERE RemittanceId=@RemittanceId", r);
             return r.RemittanceId;
         }
 
@@ -758,7 +758,7 @@ namespace HotelChannelManager.Services
                          CAST(LockedUntil  AS CHAR) AS LockedUntil,
                          MustChangePass,
                          CAST(CreatedAt    AS CHAR) AS CreatedAt
-                  FROM Users
+                  FROM users
                   WHERE Username=@U AND IsActive=1",
                 new { U = username });
         }
@@ -766,13 +766,13 @@ namespace HotelChannelManager.Services
         public async Task UpdateLastLogin(int userId)
         {
             using var db = GetDb();
-            await db.ExecuteAsync("UPDATE Users SET LastLoginAt=NOW(),LoginAttempts=0 WHERE UserId=@Id", new { Id = userId });
+            await db.ExecuteAsync("UPDATE users SET LastLoginAt=NOW(),LoginAttempts=0 WHERE UserId=@Id", new { Id = userId });
         }
 
         public async Task IncrementLoginAttempts(string username)
         {
             using var db = GetDb();
-            await db.ExecuteAsync("UPDATE Users SET LoginAttempts=LoginAttempts+1 WHERE Username=@U", new { U = username });
+            await db.ExecuteAsync("UPDATE users SET LoginAttempts=LoginAttempts+1 WHERE Username=@U", new { U = username });
         }
 
         public async Task<IEnumerable<User>> GetUsers(int? hotelId=null)
@@ -782,7 +782,7 @@ namespace HotelChannelManager.Services
                                CAST(LastLoginAt AS CHAR) AS LastLoginAt,
                                LoginAttempts,
                                CAST(CreatedAt AS CHAR) AS CreatedAt
-                        FROM Users WHERE 1=1";
+                        FROM users WHERE 1=1";
             if (hotelId.HasValue) sql += " AND (HotelId=@HId OR Role='SuperAdmin')";
             return await db.QueryAsync<User>(sql + " ORDER BY Username", new { HId = hotelId });
         }
@@ -791,7 +791,7 @@ namespace HotelChannelManager.Services
         {
             using var db = GetDb();
             return await db.ExecuteScalarAsync<int>(
-                @"INSERT INTO Users(HotelId,Username,PasswordHash,FullName,Email,Phone,Role)
+                @"INSERT INTO users(HotelId,Username,PasswordHash,FullName,Email,Phone,Role)
                   VALUES(@HotelId,@Username,@PasswordHash,@FullName,@Email,@Phone,@Role); SELECT LAST_INSERT_ID();", u);
         }
 
@@ -799,7 +799,7 @@ namespace HotelChannelManager.Services
         {
             using var db = GetDb();
             await db.ExecuteAsync(
-                @"UPDATE Users SET FullName=COALESCE(@FN,FullName),Email=COALESCE(@Em,Email),
+                @"UPDATE users SET FullName=COALESCE(@FN,FullName),Email=COALESCE(@Em,Email),
                   Phone=COALESCE(@Ph,Phone),Role=COALESCE(@Role,Role),
                   IsActive=COALESCE(@Active,IsActive),HotelId=COALESCE(@HId,HotelId) WHERE UserId=@Id",
                 new { Id=id, FN=fullName, Em=email, Ph=phone, Role=role, Active=isActive, HId=hotelId });
@@ -808,7 +808,7 @@ namespace HotelChannelManager.Services
         public async Task UpdateUserPassword(int id, string hash)
         {
             using var db = GetDb();
-            await db.ExecuteAsync("UPDATE Users SET PasswordHash=@Hash,MustChangePass=0 WHERE UserId=@Id", new { Id=id, Hash=hash });
+            await db.ExecuteAsync("UPDATE users SET PasswordHash=@Hash,MustChangePass=0 WHERE UserId=@Id", new { Id=id, Hash=hash });
         }
 
         // ── DASHBOARD ──────────────────────────────────────────────────────
@@ -817,17 +817,17 @@ namespace HotelChannelManager.Services
             using var db = GetDb();
             var today = DateTime.Today;
             var stats = new DashboardStats();
-            try { stats.TodayArrivals=await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM Bookings WHERE HotelId=@H AND CheckInDate=@D AND BookingStatus IN('Confirmed','CheckedIn')",new{H=hotelId,D=today}); } catch { }
-            try { stats.TodayDepartures=await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM Bookings WHERE HotelId=@H AND CheckOutDate=@D AND BookingStatus='CheckedIn'",new{H=hotelId,D=today}); } catch { }
-            try { stats.CurrentlyOccupied=await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM Bookings WHERE HotelId=@H AND BookingStatus='CheckedIn'",new{H=hotelId}); } catch { }
-            try { stats.TodayRevenue=await db.ExecuteScalarAsync<decimal>("SELECT COALESCE(SUM(GrandTotal),0) FROM Bookings WHERE HotelId=@H AND DATE(CreatedAt)=@D AND BookingStatus<>'Cancelled'",new{H=hotelId,D=today}); } catch { }
-            try { stats.MonthRevenue=await db.ExecuteScalarAsync<decimal>("SELECT COALESCE(SUM(GrandTotal),0) FROM Bookings WHERE HotelId=@H AND YEAR(CreatedAt)=YEAR(@D) AND MONTH(CreatedAt)=MONTH(@D) AND BookingStatus<>'Cancelled'",new{H=hotelId,D=today}); } catch { }
-            try { stats.YearRevenue=await db.ExecuteScalarAsync<decimal>("SELECT COALESCE(SUM(GrandTotal),0) FROM Bookings WHERE HotelId=@H AND YEAR(CreatedAt)=YEAR(@D) AND BookingStatus<>'Cancelled'",new{H=hotelId,D=today}); } catch { }
-            try { stats.TotalBookingsThisMonth=await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM Bookings WHERE HotelId=@H AND YEAR(CreatedAt)=YEAR(@D) AND MONTH(CreatedAt)=MONTH(@D)",new{H=hotelId,D=today}); } catch { }
-            try { stats.PendingCheckouts=await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM Bookings WHERE HotelId=@H AND CheckOutDate<=@D AND BookingStatus='CheckedIn'",new{H=hotelId,D=today}); } catch { }
+            try { stats.TodayArrivals=await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM bookings WHERE HotelId=@H AND CheckInDate=@D AND BookingStatus IN('Confirmed','CheckedIn')",new{H=hotelId,D=today}); } catch { }
+            try { stats.TodayDepartures=await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM bookings WHERE HotelId=@H AND CheckOutDate=@D AND BookingStatus='CheckedIn'",new{H=hotelId,D=today}); } catch { }
+            try { stats.CurrentlyOccupied=await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM bookings WHERE HotelId=@H AND BookingStatus='CheckedIn'",new{H=hotelId}); } catch { }
+            try { stats.TodayRevenue=await db.ExecuteScalarAsync<decimal>("SELECT COALESCE(SUM(GrandTotal),0) FROM bookings WHERE HotelId=@H AND DATE(CreatedAt)=@D AND BookingStatus<>'Cancelled'",new{H=hotelId,D=today}); } catch { }
+            try { stats.MonthRevenue=await db.ExecuteScalarAsync<decimal>("SELECT COALESCE(SUM(GrandTotal),0) FROM bookings WHERE HotelId=@H AND YEAR(CreatedAt)=YEAR(@D) AND MONTH(CreatedAt)=MONTH(@D) AND BookingStatus<>'Cancelled'",new{H=hotelId,D=today}); } catch { }
+            try { stats.YearRevenue=await db.ExecuteScalarAsync<decimal>("SELECT COALESCE(SUM(GrandTotal),0) FROM bookings WHERE HotelId=@H AND YEAR(CreatedAt)=YEAR(@D) AND BookingStatus<>'Cancelled'",new{H=hotelId,D=today}); } catch { }
+            try { stats.TotalBookingsThisMonth=await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM bookings WHERE HotelId=@H AND YEAR(CreatedAt)=YEAR(@D) AND MONTH(CreatedAt)=MONTH(@D)",new{H=hotelId,D=today}); } catch { }
+            try { stats.PendingCheckouts=await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM bookings WHERE HotelId=@H AND CheckOutDate<=@D AND BookingStatus='CheckedIn'",new{H=hotelId,D=today}); } catch { }
             try { var av=(await GetAvailability(null,today,today)).ToList(); stats.TotalRooms=av.Sum(a=>a.TotalRooms); stats.TotalAvailableRooms=av.Sum(a=>a.AvailableRooms); stats.OccupancyRate=stats.TotalRooms>0?Math.Round((decimal)av.Sum(a=>a.BookedRooms)*100/stats.TotalRooms,1):0; } catch { }
             try { stats.ChannelSummary=(await db.QueryAsync<ChannelRevenueSummary>("SELECT * FROM vw_ChannelRevenueSummary")).AsList(); } catch { stats.ChannelSummary=new(); }
-            try { stats.RoomOccupancy=(await db.QueryAsync<RoomTypeOccupancy>(@"SELECT rt.TypeName,ra.TotalRooms,ra.BlockedRooms,ra.BookedRooms,(ra.TotalRooms-ra.BlockedRooms-ra.BookedRooms) AS AvailableRooms,CASE WHEN ra.TotalRooms>0 THEN ROUND(ra.BookedRooms*100.0/ra.TotalRooms,1) ELSE 0 END AS OccupancyPct FROM RoomAvailability ra JOIN RoomTypes rt ON rt.RoomTypeId=ra.RoomTypeId WHERE ra.AvailDate=@D AND rt.HotelId=@H ORDER BY rt.SortOrder",new{D=today,H=hotelId})).AsList(); } catch { stats.RoomOccupancy=new(); }
+            try { stats.RoomOccupancy=(await db.QueryAsync<RoomTypeOccupancy>(@"SELECT rt.TypeName,ra.TotalRooms,ra.BlockedRooms,ra.BookedRooms,(ra.TotalRooms-ra.BlockedRooms-ra.BookedRooms) AS AvailableRooms,CASE WHEN ra.TotalRooms>0 THEN ROUND(ra.BookedRooms*100.0/ra.TotalRooms,1) ELSE 0 END AS OccupancyPct FROM roomavailability ra JOIN roomtypes rt ON rt.RoomTypeId=ra.RoomTypeId WHERE ra.AvailDate=@D AND rt.HotelId=@H ORDER BY rt.SortOrder",new{D=today,H=hotelId})).AsList(); } catch { stats.RoomOccupancy=new(); }
             try { stats.RecentBookings=(await db.QueryAsync<RecentBooking>("SELECT BookingId,BookingReference,GuestName,RoomTypeName,CheckInDate,GrandTotal,BookingStatus,ChannelName,BookingDate AS CreatedAt FROM vw_BookingDetails ORDER BY BookingDate DESC LIMIT 10")).AsList(); } catch { stats.RecentBookings=new(); }
             return stats;
         }
@@ -836,13 +836,13 @@ namespace HotelChannelManager.Services
         public async Task<IEnumerable<SystemSetting>> GetSettings()
         {
             using var db = GetDb();
-            return await db.QueryAsync<SystemSetting>("SELECT * FROM SystemSettings ORDER BY SettingKey");
+            return await db.QueryAsync<SystemSetting>("SELECT * FROM systemsettings ORDER BY SettingKey");
         }
 
         public async Task SaveSetting(string key, string? value)
         {
             using var db = GetDb();
-            await db.ExecuteAsync("INSERT INTO SystemSettings(SettingKey,SettingValue) VALUES(@K,@V) ON DUPLICATE KEY UPDATE SettingValue=@V", new { K=key, V=value });
+            await db.ExecuteAsync("INSERT INTO systemsettings(SettingKey,SettingValue) VALUES(@K,@V) ON DUPLICATE KEY UPDATE SettingValue=@V", new { K=key, V=value });
         }
 
         // ── AUDIT LOG ──────────────────────────────────────────────────────
@@ -851,7 +851,7 @@ namespace HotelChannelManager.Services
             try
             {
                 using var db = GetDb();
-                await db.ExecuteAsync("INSERT INTO AuditLogs(UserId,Action,Module,RecordId,Notes) VALUES(@U,@A,@M,@R,@N)",
+                await db.ExecuteAsync("INSERT INTO auditlogs(UserId,Action,Module,RecordId,Notes) VALUES(@U,@A,@M,@R,@N)",
                     new { U=userId, A=action, M=module, R=recordId, N=notes });
             }
             catch { }
@@ -860,7 +860,7 @@ namespace HotelChannelManager.Services
         public async Task<IEnumerable<dynamic>> GetAuditLogs(int page=1, int size=50)
         {
             using var db = GetDb();
-            return await db.QueryAsync("SELECT al.*,u.Username FROM AuditLogs al LEFT JOIN Users u ON u.UserId=al.UserId ORDER BY al.CreatedAt DESC LIMIT @Size OFFSET @Offset",
+            return await db.QueryAsync("SELECT al.*,u.Username FROM auditlogs al LEFT JOIN users u ON u.UserId=al.UserId ORDER BY al.CreatedAt DESC LIMIT @Size OFFSET @Offset",
                 new { Size=size, Offset=(page-1)*size });
         }
 
@@ -873,7 +873,7 @@ namespace HotelChannelManager.Services
         public async Task<IEnumerable<OrderCatalogItem>> GetOrderCatalog(int hotelId, string? category = null)
         {
             using var db = GetDb();
-            var sql = "SELECT * FROM OrderCatalog WHERE HotelId=@HId AND IsAvailable=1";
+            var sql = "SELECT * FROM ordercatalog WHERE HotelId=@HId AND IsAvailable=1";
             if (!string.IsNullOrEmpty(category)) sql += " AND Category=@Cat";
             sql += " ORDER BY Category, SortOrder, ItemName";
             return await db.QueryAsync<OrderCatalogItem>(sql, new { HId = hotelId, Cat = category });
@@ -883,7 +883,7 @@ namespace HotelChannelManager.Services
         {
             using var db = GetDb();
             return await db.QueryAsync<OrderCatalogItem>(
-                "SELECT * FROM OrderCatalog WHERE HotelId=@HId ORDER BY Category, SortOrder, ItemName",
+                "SELECT * FROM ordercatalog WHERE HotelId=@HId ORDER BY Category, SortOrder, ItemName",
                 new { HId = hotelId });
         }
 
@@ -891,7 +891,7 @@ namespace HotelChannelManager.Services
         {
             using var db = GetDb();
             return await db.ExecuteScalarAsync<int>(@"
-                INSERT INTO OrderCatalog(HotelId,Category,ItemName,Description,UnitPrice,Unit,TaxPercent,IsAvailable,ImageUrl,SortOrder)
+                INSERT INTO ordercatalog(HotelId,Category,ItemName,Description,UnitPrice,Unit,TaxPercent,IsAvailable,ImageUrl,SortOrder)
                 VALUES(@HotelId,@Category,@ItemName,@Description,@UnitPrice,@Unit,@TaxPercent,@IsAvailable,@ImageUrl,@SortOrder);
                 SELECT LAST_INSERT_ID();", item);
         }
@@ -900,7 +900,7 @@ namespace HotelChannelManager.Services
         {
             using var db = GetDb();
             await db.ExecuteAsync(@"
-                UPDATE OrderCatalog
+                UPDATE ordercatalog
                 SET ItemName=@ItemName, Description=@Description, UnitPrice=@UnitPrice,
                     Unit=@Unit, TaxPercent=@TaxPercent, IsAvailable=@IsAvailable,
                     ImageUrl=@ImageUrl, SortOrder=@SortOrder
@@ -910,7 +910,7 @@ namespace HotelChannelManager.Services
         public async Task DeleteCatalogItem(int catalogId)
         {
             using var db = GetDb();
-            await db.ExecuteAsync("UPDATE OrderCatalog SET IsAvailable=0 WHERE CatalogId=@Id", new { Id = catalogId });
+            await db.ExecuteAsync("UPDATE ordercatalog SET IsAvailable=0 WHERE CatalogId=@Id", new { Id = catalogId });
         }
 
         // ── ORDERS ─────────────────────────────────────────────────────────────
@@ -941,7 +941,7 @@ namespace HotelChannelManager.Services
         {
             using var db = GetDb();
             await db.ExecuteAsync(@"
-                INSERT INTO OrderItems(OrderId,CatalogId,ItemName,Description,Quantity,UnitPrice,TaxPercent,Notes)
+                INSERT INTO orderitems(OrderId,CatalogId,ItemName,Description,Quantity,UnitPrice,TaxPercent,Notes)
                 VALUES(@OrderId,@CatalogId,@ItemName,@Description,@Quantity,@UnitPrice,@TaxPercent,@Notes)",
                 new {
                     OrderId = orderId, item.CatalogId, item.ItemName, item.Description,
@@ -954,8 +954,8 @@ namespace HotelChannelManager.Services
         {
             using var db = GetDb();
             var orderId = await db.ExecuteScalarAsync<int>(
-                "SELECT OrderId FROM OrderItems WHERE OrderItemId=@Id", new { Id = orderItemId });
-            await db.ExecuteAsync("DELETE FROM OrderItems WHERE OrderItemId=@Id", new { Id = orderItemId });
+                "SELECT OrderId FROM orderitems WHERE OrderItemId=@Id", new { Id = orderItemId });
+            await db.ExecuteAsync("DELETE FROM orderitems WHERE OrderItemId=@Id", new { Id = orderItemId });
             if (orderId > 0) await db.ExecuteAsync("CALL sp_RecalcOrder(@Id)", new { Id = orderId });
         }
 
@@ -963,7 +963,7 @@ namespace HotelChannelManager.Services
         {
             using var db = GetDb();
             return await db.QueryAsync<OrderItem>(
-                "SELECT * FROM OrderItems WHERE OrderId=@Id ORDER BY OrderItemId",
+                "SELECT * FROM orderitems WHERE OrderId=@Id ORDER BY OrderItemId",
                 new { Id = orderId });
         }
 
@@ -975,7 +975,7 @@ namespace HotelChannelManager.Services
             using var db = GetDb();
             var sql = @"SELECT od.*, b.HotelId
                         FROM vw_OrderDetails od
-                        JOIN Bookings b ON b.BookingId = od.BookingId
+                        JOIN bookings b ON b.BookingId = od.BookingId
                         WHERE b.HotelId = @HId";
             if (!string.IsNullOrEmpty(status))   sql += " AND od.OrderStatus=@Status";
             if (!string.IsNullOrEmpty(category)) sql += " AND od.Category=@Cat";
@@ -1024,8 +1024,8 @@ namespace HotelChannelManager.Services
             using var db = GetDb();
             return await db.QueryAsync<OrderStatusHistory>(@"
                 SELECT h.*, u.FullName AS ChangedByName
-                FROM OrderStatusHistory h
-                LEFT JOIN Users u ON u.UserId = h.ChangedBy
+                FROM orderstatushistory h
+                LEFT JOIN users u ON u.UserId = h.ChangedBy
                 WHERE h.OrderId = @Id ORDER BY h.ChangedAt DESC", new { Id = orderId });
         }
 
@@ -1044,8 +1044,8 @@ namespace HotelChannelManager.Services
                   SUM(CASE WHEN o.OrderStatus='Cancelled'  THEN 1 ELSE 0 END) AS CancelledOrders,
                   COALESCE(SUM(CASE WHEN o.OrderStatus<>'Cancelled' THEN o.GrandTotal ELSE 0 END),0) AS TotalRevenue,
                   COALESCE(SUM(CASE WHEN o.OrderStatus NOT IN('Cancelled','Billed') THEN o.GrandTotal ELSE 0 END),0) AS UnbilledAmount
-                FROM Orders o
-                JOIN Bookings b ON b.BookingId = o.BookingId AND b.HotelId = @HId
+                FROM orders o
+                JOIN bookings b ON b.BookingId = o.BookingId AND b.HotelId = @HId
                 WHERE DATE(o.CreatedAt) BETWEEN @From AND @To",
                 new { HId = hotelId, From = from, To = to }) ?? new OrderSummaryStats();
         }
@@ -1064,7 +1064,7 @@ namespace HotelChannelManager.Services
         {
             using var db = GetDb();
             return await db.ExecuteScalarAsync<int>(@"
-                INSERT INTO BillEntries(BookingId,EntryType,Description,ReferenceId,ReferenceType,Amount,TaxAmount,GrandAmount,PostedBy)
+                INSERT INTO billentries(BookingId,EntryType,Description,ReferenceId,ReferenceType,Amount,TaxAmount,GrandAmount,PostedBy)
                 VALUES(@BookingId,@EntryType,@Description,@ReferenceId,@ReferenceType,@Amount,@TaxAmount,@GrandAmount,@PostedBy);
                 SELECT LAST_INSERT_ID();", entry);
         }
@@ -1073,7 +1073,7 @@ namespace HotelChannelManager.Services
         {
             using var db = GetDb();
             await db.ExecuteAsync(@"
-                UPDATE BillEntries
+                UPDATE billentries
                 SET IsVoided=1, VoidedAt=NOW(), VoidedBy=@Uid, VoidReason=@Reason
                 WHERE BillEntryId=@Id",
                 new { Id = billEntryId, Uid = userId, Reason = reason });
@@ -1101,10 +1101,10 @@ namespace HotelChannelManager.Services
                        b.BookingReference,
                        CONCAT(c.FirstName,' ',c.LastName) AS GuestName,
                        r.RoomNumber
-                FROM CheckoutInvoices ci
-                JOIN Bookings  b ON b.BookingId  = ci.BookingId
-                JOIN Customers c ON c.CustomerId = ci.CustomerId
-                LEFT JOIN Rooms r ON r.RoomId    = b.RoomId
+                FROM checkoutinvoices ci
+                JOIN bookings  b ON b.BookingId  = ci.BookingId
+                JOIN customers c ON c.CustomerId = ci.CustomerId
+                LEFT JOIN rooms r ON r.RoomId    = b.RoomId
                 WHERE ci.BookingId = @BId",
                 new { BId = bookingId });
         }
