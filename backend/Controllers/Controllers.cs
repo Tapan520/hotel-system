@@ -401,6 +401,69 @@ namespace HotelChannelManager.Controllers
         }
     }
 
+    // ── BOOKING ADD-ON CATALOG CONTROLLER ─────────────────────────────────────
+    [ApiController]
+    [Route("api/booking-addons")]
+    public class BookingAddonsController : ControllerBase
+    {
+        private readonly DatabaseService _db;
+        private int HotelId => int.TryParse(User.FindFirst("HotelId")?.Value, out var h) ? h : 1;
+        private int UserId  => int.TryParse(User.FindFirst("UserId")?.Value,  out var u) ? u : 0;
+
+        public BookingAddonsController(DatabaseService db) => _db = db;
+
+        /// <summary>Get all active add-ons for the hotel (used by booking form — public).</summary>
+        [HttpGet]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetCatalog([FromQuery] bool all = false)
+        {
+            var items = await _db.GetAddonCatalog(HotelId, availableOnly: !all);
+            return Ok(ApiResponse<object>.Ok(items));
+        }
+
+        /// <summary>Get add-on items saved against a booking.</summary>
+        [HttpGet("booking/{bookingId}")]
+        [Authorize]
+        public async Task<IActionResult> GetForBooking(int bookingId)
+        {
+            var items = await _db.GetBookingAddons(bookingId);
+            return Ok(ApiResponse<object>.Ok(items));
+        }
+
+        /// <summary>Create a new add-on catalog item (admin only).</summary>
+        [HttpPost]
+        [Authorize]
+        public async Task<IActionResult> Create([FromBody] BookingAddonCatalog item)
+        {
+            item.HotelId = HotelId;
+            var id = await _db.SaveAddonCatalog(item);
+            await _db.LogAudit(UserId, "CREATE_ADDON", "BookingAddonCatalog", id.ToString());
+            return Ok(ApiResponse<object>.Ok(new { addonId = id }, "Add-on created"));
+        }
+
+        /// <summary>Update an existing add-on catalog item (admin only).</summary>
+        [HttpPut("{id}")]
+        [Authorize]
+        public async Task<IActionResult> Update(int id, [FromBody] BookingAddonCatalog item)
+        {
+            item.AddonId = id;
+            item.HotelId = HotelId;
+            await _db.SaveAddonCatalog(item);
+            await _db.LogAudit(UserId, "UPDATE_ADDON", "BookingAddonCatalog", id.ToString());
+            return Ok(ApiResponse<string>.Ok("Add-on updated"));
+        }
+
+        /// <summary>Deactivate an add-on (soft delete).</summary>
+        [HttpDelete("{id}")]
+        [Authorize]
+        public async Task<IActionResult> Delete(int id)
+        {
+            await _db.DeactivateAddon(id);
+            await _db.LogAudit(UserId, "DEACTIVATE_ADDON", "BookingAddonCatalog", id.ToString());
+            return Ok(ApiResponse<string>.Ok("Add-on deactivated"));
+        }
+    }
+
     // ── BOOKINGS CONTROLLER ────────────────────────────────────────────────────
     [ApiController]
     [Route("api/bookings")]
@@ -885,13 +948,14 @@ namespace HotelChannelManager.Controllers
         public async Task<IActionResult> GetOrders(
             [FromQuery] string? status,
             [FromQuery] string? category,
+            [FromQuery] string? orderType,
             [FromQuery] int? bookingId,
             [FromQuery] DateTime? from,
             [FromQuery] DateTime? to,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 50)
         {
-            var orders = await _db.GetOrders(HotelId, status, category, bookingId, from, to, page, pageSize);
+            var orders = await _db.GetOrders(HotelId, status, category, orderType, bookingId, from, to, page, pageSize);
             return Ok(ApiResponse<object>.Ok(orders));
         }
 
@@ -910,10 +974,20 @@ namespace HotelChannelManager.Controllers
         {
             if (!ModelState.IsValid)
                 return BadRequest(ApiResponse<string>.Fail("Invalid request data"));
+
+            // Validate by order type
+            if (req.OrderType == "InRoom" && (req.BookingId == null || req.BookingId == 0))
+                return BadRequest(ApiResponse<string>.Fail("InRoom order requires a Booking"));
+            if (req.OrderType == "DirectSale" && string.IsNullOrWhiteSpace(req.WalkInGuestName))
+                return BadRequest(ApiResponse<string>.Fail("Guest name is required for Direct Sale orders"));
+
             try
             {
                 var (orderId, orderNumber, msg) = await _db.CreateOrder(
-                    HotelId, req.BookingId, req.RoomId, req.CustomerId,
+                    HotelId,
+                    req.OrderType,
+                    req.BookingId, req.RoomId, req.CustomerId,
+                    req.WalkInGuestName, req.WalkInGuestPhone,
                     req.Category, req.Priority ?? "Normal",
                     req.SpecialInstructions, req.DeliveryTime, UserId);
 
@@ -924,7 +998,7 @@ namespace HotelChannelManager.Controllers
                     await _db.AddOrderItem(orderId, item);
 
                 await _db.LogAudit(UserId, "CREATE_ORDER", "Orders", orderId.ToString(),
-                    $"Category: {req.Category}");
+                    $"Type: {req.OrderType}, Category: {req.Category}");
                 return Ok(ApiResponse<object>.Ok(
                     new { orderId, orderNumber }, msg.Replace("SUCCESS: ", "")));
             }
@@ -961,13 +1035,85 @@ namespace HotelChannelManager.Controllers
         [HttpPost("{id}/bill")]
         public async Task<IActionResult> BillOrder(int id)
         {
-            var (billId, msg) = await _db.BillOrder(id, UserId);
+            var (billId, receiptNo, msg) = await _db.BillOrder(id, UserId);
             if (msg.StartsWith("ERROR"))
                 return BadRequest(ApiResponse<string>.Fail(msg.Replace("ERROR: ", "")));
             await _db.LogAudit(UserId, "BILL_ORDER", "Orders", id.ToString(),
                 $"BillEntry #{billId}");
-            return Ok(ApiResponse<object>.Ok(new { billEntryId = billId },
+            return Ok(ApiResponse<object>.Ok(new { billEntryId = billId, receiptNo },
                 msg.Replace("SUCCESS: ", "")));
+        }
+
+        /// <summary>
+        /// Quick-bill for DirectSale orders — advances to Delivered + Billed in one step.
+        /// Ideal for standalone restaurant use where the full status flow is too slow.
+        /// </summary>
+        [HttpPost("{id}/quickbill")]
+        public async Task<IActionResult> QuickBillOrder(int id)
+        {
+            var (billId, receiptNo, msg) = await _db.QuickBillDirectSale(id, UserId);
+            if (msg.StartsWith("ERROR"))
+                return BadRequest(ApiResponse<string>.Fail(msg.Replace("ERROR: ", "")));
+            await _db.LogAudit(UserId, "QUICKBILL_ORDER", "Orders", id.ToString(),
+                $"DirectSale receipt: {receiptNo}");
+            return Ok(ApiResponse<object>.Ok(
+                new { billEntryId = billId, receiptNo },
+                msg.Replace("SUCCESS: ", "")));
+        }
+
+        // ── OMS REPORTS ───────────────────────────────────────────────────────
+
+        [HttpGet("report")]
+        public async Task<IActionResult> GetOrderReport(
+            [FromQuery] DateTime? from,
+            [FromQuery] DateTime? to,
+            [FromQuery] string? orderType,
+            [FromQuery] string? category,
+            [FromQuery] string? status,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 100)
+        {
+            var f = from ?? DateTime.Today.AddMonths(-1);
+            var t = to   ?? DateTime.Today;
+            var (items, total) = await _db.GetOrderReport(HotelId, f, t, orderType, category, status, page, pageSize);
+            return Ok(ApiResponse<object>.Ok(items, total: total));
+        }
+
+        [HttpGet("report/by-category")]
+        public async Task<IActionResult> GetRevenueByCategory(
+            [FromQuery] DateTime? from,
+            [FromQuery] DateTime? to,
+            [FromQuery] string? orderType)
+        {
+            var f = from ?? DateTime.Today.AddMonths(-1);
+            var t = to   ?? DateTime.Today;
+            var data = await _db.GetOrderRevenueByCategory(HotelId, f, t, orderType);
+            return Ok(ApiResponse<object>.Ok(data));
+        }
+
+        [HttpGet("report/by-day")]
+        public async Task<IActionResult> GetRevenueByDay(
+            [FromQuery] DateTime? from,
+            [FromQuery] DateTime? to,
+            [FromQuery] string? orderType)
+        {
+            var f = from ?? DateTime.Today.AddMonths(-1);
+            var t = to   ?? DateTime.Today;
+            var data = await _db.GetOrderRevenueByDay(HotelId, f, t, orderType);
+            return Ok(ApiResponse<object>.Ok(data));
+        }
+
+        [HttpGet("report/top-items")]
+        public async Task<IActionResult> GetTopItems(
+            [FromQuery] DateTime? from,
+            [FromQuery] DateTime? to,
+            [FromQuery] string? category,
+            [FromQuery] int topN = 10)
+        {
+            var f = from ?? DateTime.Today.AddMonths(-1);
+            var t = to   ?? DateTime.Today;
+            var data = await _db.GetTopOrderItems(HotelId, f, t, category, topN);
+            return Ok(ApiResponse<object>.Ok(data));
         }
 
         // ── FOLIO ─────────────────────────────────────────────────────────────
