@@ -177,6 +177,7 @@ namespace HotelChannelManager.Models
         public decimal TaxAmount { get; set; }
         public decimal DiscountAmount { get; set; }
         public decimal GrandTotal { get; set; }
+        public decimal AddonTotal { get; set; }
         public decimal CommissionAmount { get; set; }
         public decimal? NetToHotel { get; set; }
         public decimal AmountPaid { get; set; }
@@ -207,6 +208,37 @@ namespace HotelChannelManager.Models
         public string? VIPStatus { get; set; }
         public string? ChannelName { get; set; }
         public string? PartnerCode { get; set; }
+    }
+
+    // ── BOOKING ADD-ONS ───────────────────────────────────────────────────
+    public class BookingAddonCatalog
+    {
+        public int AddonId { get; set; }
+        public int HotelId { get; set; }
+        public string AddonName { get; set; } = "";
+        public string? Description { get; set; }
+        public string Category { get; set; } = "Other";   // Meal|Bed|Transfer|Activity|Other
+        public string ChargeType { get; set; } = "PerStay"; // PerNight|PerStay|PerPerson|PerPersonPerNight
+        public decimal UnitPrice { get; set; }
+        public decimal TaxPercent { get; set; }
+        public bool IsAvailable { get; set; } = true;
+        public int SortOrder { get; set; }
+        public DateTime CreatedAt { get; set; }
+    }
+
+    public class BookingAddonItem
+    {
+        public int ItemId { get; set; }
+        public int BookingId { get; set; }
+        public int? AddonId { get; set; }
+        public string AddonName { get; set; } = "";
+        public string ChargeType { get; set; } = "PerStay";
+        public decimal Quantity { get; set; } = 1;
+        public decimal UnitPrice { get; set; }
+        public decimal TaxPercent { get; set; }
+        public decimal TaxAmount { get; set; }
+        public decimal LineTotal { get; set; }
+        public DateTime CreatedAt { get; set; }
     }
 
     public class Payment
@@ -352,9 +384,15 @@ namespace HotelChannelManager.Models
         public int OrderId { get; set; }
         public string OrderNumber { get; set; } = "";
         public int HotelId { get; set; }
-        public int BookingId { get; set; }
-        public int RoomId { get; set; }
-        public int CustomerId { get; set; }
+        // InRoom = linked to a hotel room booking | DirectSale = restaurant/bar walk-in
+        public string OrderType { get; set; } = "InRoom";
+        public int? BookingId { get; set; }          // nullable — null for DirectSale
+        public int? RoomId { get; set; }             // nullable — null for DirectSale
+        public int? CustomerId { get; set; }         // nullable — null for anonymous walk-ins
+        // Walk-in guest fields (used when OrderType = DirectSale)
+        public string? WalkInGuestName { get; set; }
+        public string? WalkInGuestPhone { get; set; }
+        public string? DirectReceiptNo { get; set; } // receipt number for DirectSale billing
         public string Category { get; set; } = "";
         public string OrderStatus { get; set; } = "Pending";
         public string Priority { get; set; } = "Normal";
