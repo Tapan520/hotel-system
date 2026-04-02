@@ -348,6 +348,13 @@ footer ul li a:hover{color:var(--gold);}
         <div id="quoteBody">
           <div class="ptable" id="priceTable"></div>
           <div id="qAlert"></div>
+          <!-- ADD-ONS -->
+          <div id="addonSection" style="display:none;margin-top:1rem;border-top:1px solid rgba(201,169,110,0.2);padding-top:1rem">
+            <div style="font-family:'Cormorant Garamond',serif;font-size:1rem;color:var(--navy);margin-bottom:.5rem">✨ Add-Ons &amp; Extras</div>
+            <div style="font-size:.78rem;color:var(--gray);margin-bottom:.8rem">Enhance your stay with our curated add-ons.</div>
+            <div id="addonPickerList"></div>
+          </div>
+
           <div class="fg" style="margin-top:1rem;">
             <label>Payment Option</label>
             <select id="payMode">
@@ -474,7 +481,7 @@ footer ul li a:hover{color:var(--gold);}
 
 <script>
 const API = '/api';
-let selRoomTypeId = null, selQuote = null;
+let selRoomTypeId = null, selQuote = null, selAddons = [];
 
 // ── SESSION (localStorage-backed customer login) ───────────────────────────
 const SESSION_KEY = 'hcm_guest';
@@ -894,12 +901,14 @@ async function openBookModal(rtId, rtName) {
   const co = document.getElementById('wOut').value;
   if (!ci || !co) { alert('Please select check-in and check-out dates first.'); return; }
   selRoomTypeId = rtId;
+  selAddons = [];   // reset any previous selection
   document.getElementById('mRoomName').textContent = rtName;
   goStep(1);
   showModal('bookModal');
   document.getElementById('quoteLoading').style.display = 'block';
   document.getElementById('quoteBody').style.display = 'none';
   document.getElementById('qAlert').innerHTML = '';
+  loadBookingAddons();  // fetch addon catalog and render picker
 
   // Pre-fill guest info if logged in
   const s = getSession();
@@ -911,9 +920,10 @@ async function openBookModal(rtId, rtName) {
   }
 
   try {
+    const adults = parseInt(document.getElementById('wAdults')?.value)||2;
     const r = await fetch(`${API}/bookings/quote`, {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({roomTypeId: rtId, checkInDate: ci, checkOutDate: co})
+      body: JSON.stringify({roomTypeId: rtId, checkInDate: ci, checkOutDate: co, adults, addons: selAddons})
     });
     const d = await r.json();
     selQuote = d.data;
@@ -942,10 +952,20 @@ function renderPriceTable(q) {
       <span>₹${Math.round(n.rate).toLocaleString('en-IN')}</span>
     </div>`
   ).join('');
+  const addonLines = q.addonLines||[];
+  const addonRows = addonLines.length===0?'' :
+    addonLines.map(a=>
+      `<div class="nr" style="color:#555">
+        <span>✨ ${a.addonName} <small style="color:#999">× ${a.quantity} (${a.chargeType})</small></span>
+        <span>₹${Math.round(a.lineTotal).toLocaleString('en-IN')}</span>
+      </div>`
+    ).join('') +
+    `<div class="pr" style="color:var(--navy)"><span>Add-ons Subtotal</span><span>₹${Math.round(q.addonTotal||0).toLocaleString('en-IN')}</span></div>`;
   document.getElementById('priceTable').innerHTML = `
     ${nightRows}
     <div class="pr"><span>Room Subtotal (${q.nights} night${q.nights>1?'s':''})</span><span>₹${Math.round(q.subTotal).toLocaleString('en-IN')}</span></div>
     <div class="pr"><span>GST (${q.taxPercent}%)</span><span>₹${Math.round(q.taxAmount).toLocaleString('en-IN')}</span></div>
+    ${addonRows}
     <div class="pr tot"><span>Grand Total</span><span>₹${Math.round(q.grandTotal).toLocaleString('en-IN')}</span></div>`;
 }
 
@@ -972,6 +992,7 @@ async function submitBooking() {
     paymentMode:    document.getElementById('payMode').value,
     bookingSource:  'Website',
     specialRequests:document.getElementById('specReq').value,
+    addons: selAddons,
     guestFirstName: fn, guestLastName: ln, guestEmail: em,
     guestPhone:     document.getElementById('gPhone').value,
     guestNationality:document.getElementById('gNat').value,
@@ -1067,6 +1088,114 @@ async function cancelGuest(id, ref) {
     } else { alert(d.message || 'Cancellation failed.'); }
   } catch(e) { alert('Error. Please call the hotel directly.'); }
 }
+
+// ── Customer Portal Add-On Functions ─────────────────────────────────────
+let _custAddonCatalog = [];
+
+async function loadBookingAddons() {
+  try {
+    const r = await fetch(`${API}/booking-addons`);
+    const d = await r.json();
+    _custAddonCatalog = Array.isArray(d?.data) ? d.data : [];
+  } catch(e) { _custAddonCatalog = []; }
+  renderAddonPicker();
+}
+
+function renderAddonPicker() {
+  const el = document.getElementById('addonPickerList');
+  const sec = document.getElementById('addonSection');
+  if (!el || !sec) return;
+  if (_custAddonCatalog.length === 0) { sec.style.display='none'; return; }
+  sec.style.display = 'block';
+
+  const catIcons = {Meal:'🍽',Bed:'🛏',Transfer:'🚗',Activity:'🎯',Other:'✨'};
+  const groups = {};
+  _custAddonCatalog.forEach(a => {
+    if (!groups[a.category]) groups[a.category] = [];
+    groups[a.category].push(a);
+  });
+
+  el.innerHTML = Object.entries(groups).map(([cat, items]) => `
+    <div style="margin-bottom:.8rem">
+      <div style="font-size:.72rem;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.4px;margin-bottom:.4rem">
+        ${catIcons[cat]||'✨'} ${cat}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.35rem">
+        ${items.map(a => `
+          <label id="ca-lbl-${a.addonId}"
+            style="display:flex;align-items:flex-start;gap:.5rem;padding:.5rem .6rem;border:1.5px solid rgba(201,169,110,0.3);border-radius:8px;cursor:pointer;transition:all .15s;font-size:.78rem;background:rgba(255,255,255,.6);"
+          >
+            <input type="checkbox" id="ca-${a.addonId}" value="${a.addonId}"
+              style="margin-top:2px;accent-color:var(--gold)"
+              onchange="_custOnAddonChange(${a.addonId},'${a.chargeType}')">
+            <div style="flex:1">
+              <div style="font-weight:600;color:var(--navy)">${a.addonName}</div>
+              ${a.description?`<div style="font-size:.7rem;color:var(--gray)">${a.description}</div>`:''}
+              <div style="font-size:.72rem;color:var(--gold);font-weight:600;margin-top:2px">
+                ₹${Math.round(a.unitPrice).toLocaleString('en-IN')} / ${_custChargeLabel(a.chargeType)}
+                ${a.taxPercent>0?`<span style="color:var(--gray);font-weight:400"> +${a.taxPercent}% GST</span>`:''}
+              </div>
+              ${(a.chargeType==='PerPerson'||a.chargeType==='PerPersonPerNight')?`
+                <div id="ca-qty-wrap-${a.addonId}" style="display:none;margin-top:.3rem">
+                  <label style="font-size:.7rem;color:var(--gray)">Persons:</label>
+                  <input type="number" id="ca-qty-${a.addonId}" min="1" max="8" value="2"
+                    style="width:45px;padding:2px 4px;border:1px solid #ddd;border-radius:4px;font-size:.78rem;margin-left:.3rem"
+                    onchange="_custRefreshQuote()">
+                </div>`:''}
+            </div>
+          </label>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function _custChargeLabel(ct) {
+  return {PerNight:'night',PerStay:'stay',PerPerson:'person',PerPersonPerNight:'person/night'}[ct]||ct;
+}
+
+function _custOnAddonChange(addonId, chargeType) {
+  const chk = document.getElementById(`ca-${addonId}`);
+  const lbl = document.getElementById(`ca-lbl-${addonId}`);
+  const qWrap = document.getElementById(`ca-qty-wrap-${addonId}`);
+  if (lbl) {
+    lbl.style.borderColor  = chk.checked ? 'var(--gold)' : 'rgba(201,169,110,0.3)';
+    lbl.style.background   = chk.checked ? 'rgba(201,169,110,0.08)' : 'rgba(255,255,255,.6)';
+  }
+  if (qWrap) qWrap.style.display = chk.checked ? 'block' : 'none';
+  _custRefreshQuote();
+}
+
+function _custGetSelectedAddons() {
+  const addons = [];
+  document.querySelectorAll('[id^="ca-"][type="checkbox"]').forEach(chk => {
+    if (chk.checked) {
+      const addonId = parseInt(chk.value);
+      const qtyEl = document.getElementById(`ca-qty-${addonId}`);
+      addons.push({ addonId, quantity: qtyEl ? parseInt(qtyEl.value)||1 : 1 });
+    }
+  });
+  return addons;
+}
+
+async function _custRefreshQuote() {
+  selAddons = _custGetSelectedAddons();
+  const rtId = selRoomTypeId;
+  const ci   = document.getElementById('wIn')?.value;
+  const co   = document.getElementById('wOut')?.value;
+  if (!rtId || !ci || !co) return;
+  const adults = parseInt(document.getElementById('wAdults')?.value)||2;
+  try {
+    const r = await fetch(`${API}/bookings/quote`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ roomTypeId: rtId, checkInDate: ci, checkOutDate: co, adults, addons: selAddons })
+    });
+    const d = await r.json();
+    if (d.success && d.data) {
+      selQuote = d.data;
+      renderPriceTable(selQuote);
+    }
+  } catch(e) {}
+}
+
 </script>
 </body>
 </html>
