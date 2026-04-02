@@ -44,6 +44,25 @@ namespace HotelChannelManager.DTOs
         [Required, MinLength(8)] public string NewPassword { get; set; } = "";
     }
 
+    // ── Booking Add-On DTOs ──────────────────────────────────────────────
+    public class BookingAddonRequest
+    {
+        [Required] public int AddonId { get; set; }
+        public int Quantity { get; set; } = 1; // persons for PerPerson types; nights auto-computed
+    }
+
+    public class AddonQuoteLine
+    {
+        public int AddonId { get; set; }
+        public string AddonName { get; set; } = "";
+        public string ChargeType { get; set; } = "";
+        public decimal UnitPrice { get; set; }
+        public decimal TaxPercent { get; set; }
+        public decimal Quantity { get; set; }
+        public decimal TaxAmount { get; set; }
+        public decimal LineTotal { get; set; }
+    }
+
     // ── Booking DTOs ─────────────────────────────────────────────────
     public class PriceQuoteRequest
     {
@@ -51,6 +70,8 @@ namespace HotelChannelManager.DTOs
         [Required] public DateTime CheckInDate { get; set; }
         [Required] public DateTime CheckOutDate { get; set; }
         public int? PartnerId { get; set; }
+        public int Adults { get; set; } = 2;
+        public List<BookingAddonRequest> Addons { get; set; } = new();
     }
 
     public class NightlyRate
@@ -73,6 +94,8 @@ namespace HotelChannelManager.DTOs
         public decimal SubTotal { get; set; }
         public decimal TaxAmount { get; set; }
         public decimal TaxPercent { get; set; }
+        public decimal AddonTotal { get; set; }
+        public List<AddonQuoteLine> AddonLines { get; set; } = new();
         public decimal GrandTotal { get; set; }
         public decimal CommissionAmount { get; set; }
         public decimal CommissionPercent { get; set; }
@@ -96,6 +119,8 @@ namespace HotelChannelManager.DTOs
         public string? SpecialRequests { get; set; }
         // Admin-only: override the standard nightly rate for this booking
         public decimal? OverrideRoomRate { get; set; }
+        // Selected add-ons (Extra Bed, Breakfast, Dinner, etc.)
+        public List<BookingAddonRequest> Addons { get; set; } = new();
         // Guest info
         [Required] public string GuestFirstName { get; set; } = "";
         [Required] public string GuestLastName { get; set; } = "";
@@ -196,9 +221,19 @@ namespace HotelChannelManager.DTOs
 
     public class CreateOrderRequest
     {
-        [Required] public int BookingId { get; set; }
-        [Required] public int RoomId { get; set; }
-        [Required] public int CustomerId { get; set; }
+        // "InRoom" = hotel room guest  |  "DirectSale" = restaurant/bar walk-in
+        [Required] public string OrderType { get; set; } = "InRoom";
+
+        // ── InRoom fields (required when OrderType = InRoom) ──────────────────
+        public int? BookingId { get; set; }
+        public int? RoomId { get; set; }
+        public int? CustomerId { get; set; }
+
+        // ── DirectSale fields (used when OrderType = DirectSale) ──────────────
+        public string? WalkInGuestName { get; set; }
+        public string? WalkInGuestPhone { get; set; }
+
+        // ── Common fields ─────────────────────────────────────────────────────
         [Required] public string Category { get; set; } = "";
         public string? Priority { get; set; }
         public string? SpecialInstructions { get; set; }
