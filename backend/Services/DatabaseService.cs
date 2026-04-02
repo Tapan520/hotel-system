@@ -478,7 +478,14 @@ namespace HotelChannelManager.Services
                     : await GetEffectiveRate(db, req.RoomTypeId, d, req.PartnerId);
 
             decimal taxAmount    = Math.Round(subTotal * taxPct / 100m, 2);
-            decimal grandTotal   = subTotal + taxAmount;
+
+            // 6b. Compute add-on totals
+            var addonItems  = req.Addons?.Count > 0
+                ? await BuildAddonItems(db, 0, req.Addons, nights, req.AdultsCount)
+                : new List<BookingAddonItem>();
+            decimal addonTotal = addonItems.Sum(a => a.LineTotal);
+
+            decimal grandTotal   = subTotal + taxAmount + addonTotal;
             decimal commAmount   = Math.Round(grandTotal * commPct / 100m, 2);
             decimal netToHotel   = grandTotal - commAmount;
 
@@ -488,13 +495,13 @@ namespace HotelChannelManager.Services
                 INSERT INTO bookings
                   (HotelId,RoomTypeId,CustomerId,PartnerId,BookingReference,
                    CheckInDate,CheckOutDate,AdultsCount,ChildrenCount,
-                   RoomRate,SubTotal,TaxAmount,DiscountAmount,GrandTotal,
+                   RoomRate,SubTotal,TaxAmount,DiscountAmount,AddonTotal,GrandTotal,
                    CommissionAmount,NetToHotel,PaymentMode,BookingStatus,BookingSource,
                    SpecialRequests,ConfirmedAt,CreatedAt)
                 VALUES
                   (@HId,@RtId,@CId,@PId,@Ref,
                    @CIn,@COut,@Adults,@Children,
-                   @RoomRate,@Sub,@Tax,0,@Grand,
+                   @RoomRate,@Sub,@Tax,0,@AddonTotal,@Grand,
                    @Comm,@Net,@PayMode,'Confirmed',@Source,
                    @SpecReqs,NOW(),NOW());
                 SELECT LAST_INSERT_ID();",
@@ -504,7 +511,7 @@ namespace HotelChannelManager.Services
                     Ref=bookingRef, CIn=checkIn, COut=checkOut,
                     Adults=req.AdultsCount, Children=req.ChildrenCount,
                     RoomRate=rateOverridden ? req.OverrideRoomRate!.Value : (nights>0 ? subTotal/nights : subTotal),
-                    Sub=subTotal, Tax=taxAmount, Grand=grandTotal,
+                    Sub=subTotal, Tax=taxAmount, AddonTotal=addonTotal, Grand=grandTotal,
                     Comm=commAmount, Net=netToHotel,
                     PayMode=req.PaymentMode ?? "PayAtHotel",
                     Source=req.BookingSource ?? "Website",
@@ -512,6 +519,18 @@ namespace HotelChannelManager.Services
                 });
 
             if (bookingId == 0) return (0, "", "ERROR: Booking insert failed");
+
+            // Save addon line items
+            foreach (var item in addonItems)
+            {
+                item.BookingId = bookingId;
+                await db.ExecuteAsync(@"
+                    INSERT INTO bookingaddonitems
+                        (BookingId,AddonId,AddonName,ChargeType,Quantity,UnitPrice,TaxPercent,TaxAmount,LineTotal)
+                    VALUES
+                        (@BookingId,@AddonId,@AddonName,@ChargeType,@Quantity,@UnitPrice,@TaxPercent,@TaxAmount,@LineTotal)",
+                    item);
+            }
 
             // 8. Decrement availability for each night
             for (var d = checkIn; d < checkOut; d = d.AddDays(1))
@@ -682,7 +701,44 @@ namespace HotelChannelManager.Services
             }
             quote.SubTotal=subTotal;
             quote.TaxAmount=Math.Round(subTotal*(hotel?.TaxPercent??12)/100,2);
-            quote.GrandTotal=subTotal+quote.TaxAmount;
+
+            // Addon lines
+            decimal addonTotal = 0m;
+            if (req.Addons?.Count > 0)
+            {
+                foreach (var addonReq in req.Addons)
+                {
+                    var catalog = await db.QueryFirstOrDefaultAsync<BookingAddonCatalog>(
+                        "SELECT * FROM bookingaddoncatalog WHERE AddonId=@Id AND IsAvailable=1",
+                        new { Id = addonReq.AddonId });
+                    if (catalog == null) continue;
+
+                    int persons = addonReq.Quantity > 0 ? addonReq.Quantity : req.Adults;
+                    decimal qty = catalog.ChargeType switch {
+                        "PerNight"          => quote.Nights,
+                        "PerStay"           => 1,
+                        "PerPerson"         => persons,
+                        "PerPersonPerNight" => persons * quote.Nights,
+                        _                   => 1
+                    };
+                    decimal lineBase = Math.Round(catalog.UnitPrice * qty, 2);
+                    decimal lineTax  = Math.Round(lineBase * catalog.TaxPercent / 100m, 2);
+                    decimal lineTotal = lineBase + lineTax;
+                    addonTotal += lineTotal;
+                    quote.AddonLines.Add(new AddonQuoteLine {
+                        AddonId    = catalog.AddonId,
+                        AddonName  = catalog.AddonName,
+                        ChargeType = catalog.ChargeType,
+                        UnitPrice  = catalog.UnitPrice,
+                        TaxPercent = catalog.TaxPercent,
+                        Quantity   = qty,
+                        TaxAmount  = lineTax,
+                        LineTotal  = lineTotal
+                    });
+                }
+            }
+            quote.AddonTotal  = addonTotal;
+            quote.GrandTotal  = subTotal + quote.TaxAmount + addonTotal;
             quote.CommissionAmount=Math.Round(subTotal*commRate/100,2);
             quote.NetToHotel=subTotal-quote.CommissionAmount;
             return quote;
@@ -868,7 +924,96 @@ namespace HotelChannelManager.Services
         // ORDER MANAGEMENT SYSTEM (OMS)
         // ══════════════════════════════════════════════════════════════════════
 
+        // ══════════════════════════════════════════════════════════════════════
+        // BOOKING ADD-ONS
+        // ══════════════════════════════════════════════════════════════════════
+
+        public async Task<IEnumerable<BookingAddonCatalog>> GetAddonCatalog(int hotelId, bool availableOnly = true)
+        {
+            using var db = GetDb();
+            var sql = "SELECT * FROM bookingaddoncatalog WHERE HotelId=@HId"
+                    + (availableOnly ? " AND IsAvailable=1" : "")
+                    + " ORDER BY SortOrder, AddonName";
+            return await db.QueryAsync<BookingAddonCatalog>(sql, new { HId = hotelId });
+        }
+
+        public async Task<int> SaveAddonCatalog(BookingAddonCatalog a)
+        {
+            using var db = GetDb();
+            if (a.AddonId == 0)
+                return await db.ExecuteScalarAsync<int>(@"
+                    INSERT INTO bookingaddoncatalog
+                        (HotelId,AddonName,Description,Category,ChargeType,UnitPrice,TaxPercent,IsAvailable,SortOrder)
+                    VALUES
+                        (@HotelId,@AddonName,@Description,@Category,@ChargeType,@UnitPrice,@TaxPercent,@IsAvailable,@SortOrder);
+                    SELECT LAST_INSERT_ID();", a);
+            await db.ExecuteAsync(@"
+                UPDATE bookingaddoncatalog
+                SET AddonName=@AddonName, Description=@Description, Category=@Category,
+                    ChargeType=@ChargeType, UnitPrice=@UnitPrice, TaxPercent=@TaxPercent,
+                    IsAvailable=@IsAvailable, SortOrder=@SortOrder
+                WHERE AddonId=@AddonId", a);
+            return a.AddonId;
+        }
+
+        public async Task DeactivateAddon(int addonId)
+        {
+            using var db = GetDb();
+            await db.ExecuteAsync(
+                "UPDATE bookingaddoncatalog SET IsAvailable=0 WHERE AddonId=@Id",
+                new { Id = addonId });
+        }
+
+        public async Task<IEnumerable<BookingAddonItem>> GetBookingAddons(int bookingId)
+        {
+            using var db = GetDb();
+            return await db.QueryAsync<BookingAddonItem>(
+                "SELECT * FROM bookingaddonitems WHERE BookingId=@BId ORDER BY ItemId",
+                new { BId = bookingId });
+        }
+
+        private async Task<List<BookingAddonItem>> BuildAddonItems(
+            System.Data.IDbConnection db,
+            int bookingId,
+            List<BookingAddonRequest> addonRequests,
+            int nights,
+            int adults)
+        {
+            var items = new List<BookingAddonItem>();
+            foreach (var req in addonRequests)
+            {
+                var catalog = await db.QueryFirstOrDefaultAsync<BookingAddonCatalog>(
+                    "SELECT * FROM bookingaddoncatalog WHERE AddonId=@Id AND IsAvailable=1",
+                    new { Id = req.AddonId });
+                if (catalog == null) continue;
+
+                int persons  = req.Quantity > 0 ? req.Quantity : adults;
+                decimal qty  = catalog.ChargeType switch {
+                    "PerNight"          => nights,
+                    "PerStay"           => 1,
+                    "PerPerson"         => persons,
+                    "PerPersonPerNight" => persons * nights,
+                    _                   => 1
+                };
+                decimal lineBase = Math.Round(catalog.UnitPrice * qty, 2);
+                decimal tax      = Math.Round(lineBase * catalog.TaxPercent / 100m, 2);
+                items.Add(new BookingAddonItem {
+                    BookingId  = bookingId,
+                    AddonId    = catalog.AddonId,
+                    AddonName  = catalog.AddonName,
+                    ChargeType = catalog.ChargeType,
+                    Quantity   = qty,
+                    UnitPrice  = catalog.UnitPrice,
+                    TaxPercent = catalog.TaxPercent,
+                    TaxAmount  = tax,
+                    LineTotal  = lineBase + tax
+                });
+            }
+            return items;
+        }
+
         // ── ORDER CATALOG ──────────────────────────────────────────────────────
+
 
         public async Task<IEnumerable<OrderCatalogItem>> GetOrderCatalog(int hotelId, string? category = null)
         {
@@ -916,25 +1061,85 @@ namespace HotelChannelManager.Services
         // ── ORDERS ─────────────────────────────────────────────────────────────
 
         public async Task<(int OrderId, string OrderNumber, string Message)> CreateOrder(
-            int hotelId, int bookingId, int roomId, int customerId,
-            string category, string priority, string? specInstr, DateTime? deliveryTime, int createdBy)
+            int hotelId, string orderType,
+            int? bookingId, int? roomId, int? customerId,
+            string? walkInGuestName, string? walkInGuestPhone,
+            string category, string priority, string? specInstr,
+            DateTime? deliveryTime, int createdBy)
         {
             using var db = GetDb();
-            var p = new DynamicParameters();
-            p.Add("p_HotelId",      hotelId);
-            p.Add("p_BookingId",    bookingId);
-            p.Add("p_RoomId",       roomId);
-            p.Add("p_CustomerId",   customerId);
-            p.Add("p_Category",     category);
-            p.Add("p_Priority",     priority);
-            p.Add("p_SpecInstr",    specInstr);
-            p.Add("p_DeliveryTime", deliveryTime);
-            p.Add("p_CreatedBy",    createdBy);
-            p.Add("p_OrderId",     dbType: DbType.Int32,  direction: ParameterDirection.Output);
-            p.Add("p_OrderNumber", dbType: DbType.String, size: 30,  direction: ParameterDirection.Output);
-            p.Add("p_Msg",         dbType: DbType.String, size: 300, direction: ParameterDirection.Output);
-            await db.ExecuteAsync("sp_CreateOrder", p, commandType: CommandType.StoredProcedure);
-            return (p.Get<int>("p_OrderId"), p.Get<string>("p_OrderNumber") ?? "", p.Get<string>("p_Msg") ?? "");
+            try
+            {
+                // ── Validate ─────────────────────────────────────────────────
+                if (orderType == "InRoom" && (bookingId == null || bookingId == 0))
+                    return (0, "", "ERROR: InRoom order requires a valid BookingId");
+
+                if (orderType == "DirectSale" &&
+                    string.IsNullOrWhiteSpace(walkInGuestName))
+                    return (0, "", "ERROR: Guest name is required for Direct Sale orders");
+
+                if (string.IsNullOrWhiteSpace(category))
+                    return (0, "", "ERROR: Category is required");
+
+                // ── For InRoom: resolve CustomerId from the booking if not supplied ──
+                if (orderType == "InRoom" && (customerId == null || customerId == 0) && bookingId > 0)
+                {
+                    var custFromBooking = await db.ExecuteScalarAsync<int?>(
+                        "SELECT CustomerId FROM bookings WHERE BookingId = @BId", new { BId = bookingId });
+                    if (custFromBooking.HasValue && custFromBooking.Value > 0)
+                        customerId = custFromBooking.Value;
+                }
+
+                // ── Generate order number ─────────────────────────────────────
+                var orderNumber = $"ORD-{DateTime.UtcNow:yyyyMMdd-HHmmss}";
+
+                // ── Insert ────────────────────────────────────────────────────
+                // NOTE: CustomerId is intentionally omitted from INSERT.
+                // The column may be NOT NULL in older DB schemas; it is not needed
+                // at the order level — guest info is resolved via BookingId JOIN
+                // or WalkInGuestName for DirectSale. Run the oms_migration_fix.sql
+                // to make the column nullable if you have not done so already.
+                var orderId = await db.ExecuteScalarAsync<int>(@"
+                    INSERT INTO orders
+                      (HotelId, OrderType, BookingId, RoomId,
+                       WalkInGuestName, WalkInGuestPhone,
+                       OrderNumber, Category, Priority, SpecialInstructions,
+                       DeliveryTime, CreatedBy, OrderStatus, CreatedAt)
+                    VALUES
+                      (@HotelId, @OrderType, @BookingId, @RoomId,
+                       @WalkInGuestName, @WalkInGuestPhone,
+                       @OrderNumber, @Category, @Priority, @SpecInstr,
+                       @DeliveryTime, @CreatedBy, 'Pending', NOW());
+                    SELECT LAST_INSERT_ID();",
+                    new {
+                        HotelId          = hotelId,
+                        OrderType        = orderType,
+                        BookingId        = (object?)(bookingId > 0 ? bookingId : null) ?? DBNull.Value,
+                        RoomId           = (object?)(roomId    > 0 ? roomId    : null) ?? DBNull.Value,
+                        WalkInGuestName  = walkInGuestName,
+                        WalkInGuestPhone = walkInGuestPhone,
+                        OrderNumber      = orderNumber,
+                        Category         = category,
+                        Priority         = priority ?? "Normal",
+                        SpecInstr        = specInstr,
+                        DeliveryTime     = (object?)deliveryTime ?? DBNull.Value,
+                        CreatedBy        = createdBy
+                    });
+
+                if (orderId == 0) return (0, "", "ERROR: Failed to create order");
+
+                // ── Log initial status history ────────────────────────────────
+                await db.ExecuteAsync(@"
+                    INSERT INTO orderstatushistory(OrderId, OldStatus, NewStatus, ChangedBy, Notes, ChangedAt)
+                    VALUES(@OId, NULL, 'Pending', @By, 'Order created', NOW())",
+                    new { OId = orderId, By = createdBy });
+
+                return (orderId, orderNumber, $"SUCCESS: Order {orderNumber} created");
+            }
+            catch (Exception ex)
+            {
+                return (0, "", $"ERROR: {ex.Message}");
+            }
         }
 
         public async Task AddOrderItem(int orderId, OrderItemRequest item)
@@ -969,22 +1174,23 @@ namespace HotelChannelManager.Services
 
         public async Task<IEnumerable<Order>> GetOrders(
             int hotelId, string? status = null, string? category = null,
-            int? bookingId = null, DateTime? from = null, DateTime? to = null,
+            string? orderType = null, int? bookingId = null,
+            DateTime? from = null, DateTime? to = null,
             int page = 1, int pageSize = 50)
         {
             using var db = GetDb();
-            var sql = @"SELECT od.*, b.HotelId
-                        FROM vw_OrderDetails od
-                        JOIN bookings b ON b.BookingId = od.BookingId
-                        WHERE b.HotelId = @HId";
-            if (!string.IsNullOrEmpty(status))   sql += " AND od.OrderStatus=@Status";
-            if (!string.IsNullOrEmpty(category)) sql += " AND od.Category=@Cat";
-            if (bookingId.HasValue)              sql += " AND od.BookingId=@BId";
-            if (from.HasValue)                   sql += " AND DATE(od.OrderDate)>=@From";
-            if (to.HasValue)                     sql += " AND DATE(od.OrderDate)<=@To";
-            sql += $" ORDER BY od.OrderDate DESC LIMIT {pageSize} OFFSET {(page - 1) * pageSize}";
+            // Use LEFT JOIN so DirectSale orders (no booking) are included
+            var sql = "SELECT * FROM vw_OrderDetails WHERE HotelId = @HId";
+            if (!string.IsNullOrEmpty(status))    sql += " AND OrderStatus=@Status";
+            if (!string.IsNullOrEmpty(category))  sql += " AND Category=@Cat";
+            if (!string.IsNullOrEmpty(orderType)) sql += " AND OrderType=@OType";
+            if (bookingId.HasValue)               sql += " AND BookingId=@BId";
+            if (from.HasValue)                    sql += " AND DATE(OrderDate)>=@From";
+            if (to.HasValue)                      sql += " AND DATE(OrderDate)<=@To";
+            sql += $" ORDER BY OrderDate DESC LIMIT {pageSize} OFFSET {(page - 1) * pageSize}";
             return await db.QueryAsync<Order>(sql,
-                new { HId = hotelId, Status = status, Cat = category, BId = bookingId, From = from, To = to });
+                new { HId = hotelId, Status = status, Cat = category,
+                      OType = orderType, BId = bookingId, From = from, To = to });
         }
 
         public async Task<Order?> GetOrderById(int orderId)
@@ -997,26 +1203,167 @@ namespace HotelChannelManager.Services
         public async Task<string> UpdateOrderStatus(int orderId, string newStatus, int userId, string? notes)
         {
             using var db = GetDb();
-            var p = new DynamicParameters();
-            p.Add("p_OrderId",   orderId);
-            p.Add("p_NewStatus", newStatus);
-            p.Add("p_UserId",    userId);
-            p.Add("p_Notes",     notes);
-            p.Add("p_Msg",       dbType: DbType.String, size: 300, direction: ParameterDirection.Output);
-            await db.ExecuteAsync("sp_UpdateOrderStatus", p, commandType: CommandType.StoredProcedure);
-            return p.Get<string>("p_Msg") ?? "";
+            try
+            {
+                // Unified flow for ALL order types: Pending → InProgress → Delivered → Billed
+                // 'Confirmed' stage has been removed — it is no longer part of the workflow.
+                var allowed = new[] { "InProgress", "Delivered", "Cancelled" };
+                if (!allowed.Contains(newStatus))
+                    return $"ERROR: Invalid status '{newStatus}'";
+
+                // Fetch current order
+                var order = await db.QueryFirstOrDefaultAsync<dynamic>(
+                    "SELECT OrderId, OrderStatus, OrderType FROM orders WHERE OrderId = @Id",
+                    new { Id = orderId });
+
+                if (order == null)
+                    return "ERROR: Order not found";
+
+                string oldStatus = (string)order.OrderStatus;
+
+                // Guard terminal states
+                if (oldStatus == "Billed")
+                    return "ERROR: Billed orders cannot be updated";
+                if (oldStatus == "Cancelled")
+                    return "ERROR: Cancelled orders cannot be updated";
+                if (oldStatus == newStatus)
+                    return $"ERROR: Order is already {newStatus}";
+
+                // Enforce forward-only progression
+                // Pending → InProgress → Delivered (Cancelled allowed from Pending or InProgress)
+                var order_flow = new[] { "Pending", "InProgress", "Delivered", "Billed" };
+                int oldIdx = Array.IndexOf(order_flow, oldStatus);
+                int newIdx = Array.IndexOf(order_flow, newStatus);
+                if (newStatus != "Cancelled" && newIdx <= oldIdx)
+                    return $"ERROR: Cannot move order from '{oldStatus}' back to '{newStatus}'";
+
+                // Build the UPDATE — set extra timestamp columns where relevant
+                string extraCols = newStatus switch
+                {
+                    "Delivered" => ", CompletedAt = NOW()",
+                    "Cancelled" => ", CancelledAt = NOW(), CancelledBy = @UserId, CancellationReason = @Notes",
+                    _           => ""
+                };
+
+                await db.ExecuteAsync(
+                    $"UPDATE orders SET OrderStatus = @NewStatus{extraCols} WHERE OrderId = @Id",
+                    new { NewStatus = newStatus, Id = orderId, UserId = userId, Notes = notes ?? "" });
+
+                // Insert status history row
+                await db.ExecuteAsync(@"
+                    INSERT INTO orderstatushistory
+                        (OrderId, OldStatus, NewStatus, ChangedBy, Notes, ChangedAt)
+                    VALUES
+                        (@OId, @OldStatus, @NewStatus, @By, @Notes, NOW())",
+                    new { OId = orderId, OldStatus = oldStatus, NewStatus = newStatus,
+                          By = userId, Notes = notes ?? "" });
+
+                return $"SUCCESS: Order status updated to {newStatus}";
+            }
+            catch (Exception ex)
+            {
+                return $"ERROR: {ex.Message}";
+            }
         }
 
-        public async Task<(int BillEntryId, string Message)> BillOrder(int orderId, int postedBy)
+        public async Task<(int BillEntryId, string ReceiptNo, string Message)> BillOrder(int orderId, int postedBy)
         {
             using var db = GetDb();
-            var p = new DynamicParameters();
-            p.Add("p_OrderId",  orderId);
-            p.Add("p_PostedBy", postedBy);
-            p.Add("p_BillId",   dbType: DbType.Int32,  direction: ParameterDirection.Output);
-            p.Add("p_Msg",      dbType: DbType.String, size: 300, direction: ParameterDirection.Output);
-            await db.ExecuteAsync("sp_BillOrder", p, commandType: CommandType.StoredProcedure);
-            return (p.Get<int>("p_BillId"), p.Get<string>("p_Msg") ?? "");
+            try
+            {
+                var order = await db.QueryFirstOrDefaultAsync<dynamic>(
+                    "SELECT OrderId, OrderType, BookingId, GrandTotal, SubTotal, TaxAmount, OrderStatus, OrderNumber FROM orders WHERE OrderId=@Id",
+                    new { Id = orderId });
+
+                if (order == null)       return (0, "", "ERROR: Order not found");
+                if ((string)order.OrderStatus != "Delivered")
+                    return (0, "", "ERROR: Only Delivered orders can be billed");
+
+                if ((string)order.OrderType == "InRoom")
+                {
+                    // Post charge to the booking folio
+                    var billId = await db.ExecuteScalarAsync<int>(@"
+                        INSERT INTO billentries
+                          (BookingId, EntryType, Description, ReferenceId, ReferenceType,
+                           Amount, TaxAmount, GrandAmount, PostedBy)
+                        VALUES
+                          (@BId, 'OrderCharge', @Desc, @RefId, 'Order',
+                           @Amount, @Tax, @Grand, @By);
+                        SELECT LAST_INSERT_ID();",
+                        new {
+                            BId    = (int)order.BookingId,
+                            Desc   = $"Order {(string)order.OrderNumber}",
+                            RefId  = orderId,
+                            Amount = (decimal)order.SubTotal,
+                            Tax    = (decimal)order.TaxAmount,
+                            Grand  = (decimal)order.GrandTotal,
+                            By     = postedBy
+                        });
+                    await db.ExecuteAsync(
+                        "UPDATE orders SET OrderStatus='Billed', BillEntryId=@BillId WHERE OrderId=@Id",
+                        new { BillId = billId, Id = orderId });
+                    return (billId, "", $"SUCCESS: Order billed to folio. BillEntry #{billId}");
+                }
+                else
+                {
+                    // DirectSale — generate a standalone receipt number
+                    var receiptNo = $"RCP-{DateTime.UtcNow:yyyyMMdd-HHmmss}";
+                    await db.ExecuteAsync(
+                        "UPDATE orders SET OrderStatus='Billed', DirectReceiptNo=@Rcp, BillEntryId=0 WHERE OrderId=@Id",
+                        new { Rcp = receiptNo, Id = orderId });
+                    return (0, receiptNo, $"SUCCESS: Receipt {receiptNo} generated");
+                }
+            }
+            catch (Exception ex)
+            {
+                return (0, "", $"ERROR: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Bill a DirectSale order that has reached Delivered status.
+        /// Generates a standalone receipt number and marks the order as Billed.
+        /// The order must be in Delivered status — same rule as InRoom BillOrder.
+        /// The frontend handles the Pending→InProgress→Delivered flow via UpdateOrderStatus.
+        /// </summary>
+        public async Task<(int BillEntryId, string ReceiptNo, string Message)> QuickBillDirectSale(int orderId, int postedBy)
+        {
+            using var db = GetDb();
+            try
+            {
+                var order = await db.QueryFirstOrDefaultAsync<dynamic>(
+                    "SELECT OrderId, OrderType, BookingId, GrandTotal, SubTotal, TaxAmount, OrderStatus, OrderNumber FROM orders WHERE OrderId=@Id",
+                    new { Id = orderId });
+
+                if (order == null) return (0, "", "ERROR: Order not found");
+                if ((string)order.OrderType != "DirectSale")
+                    return (0, "", "ERROR: This endpoint is only for Direct Sale orders");
+                if ((string)order.OrderStatus == "Billed")
+                    return (0, "", "ERROR: Order is already billed");
+                if ((string)order.OrderStatus == "Cancelled")
+                    return (0, "", "ERROR: Cancelled orders cannot be billed");
+                if ((string)order.OrderStatus != "Delivered")
+                    return (0, "", "ERROR: Only Delivered orders can be billed. Please mark the order as Delivered first.");
+
+                // Generate receipt and mark Billed
+                var receiptNo = $"RCP-{DateTime.UtcNow:yyyyMMdd-HHmmss}";
+                await db.ExecuteAsync(@"
+                    UPDATE orders
+                    SET OrderStatus='Billed', DirectReceiptNo=@Rcp, BillEntryId=0
+                    WHERE OrderId=@Id",
+                    new { Rcp = receiptNo, Id = orderId });
+
+                await db.ExecuteAsync(@"
+                    INSERT INTO orderstatushistory(OrderId, OldStatus, NewStatus, ChangedBy, Notes, ChangedAt)
+                    VALUES(@OId, 'Delivered', 'Billed', @By, @Rcp, NOW())",
+                    new { OId = orderId, By = postedBy, Rcp = $"Receipt: {receiptNo}" });
+
+                return (0, receiptNo, $"SUCCESS: Receipt {receiptNo} generated");
+            }
+            catch (Exception ex)
+            {
+                return (0, "", $"ERROR: {ex.Message}");
+            }
         }
 
         public async Task<IEnumerable<OrderStatusHistory>> GetOrderHistory(int orderId)
@@ -1045,9 +1392,94 @@ namespace HotelChannelManager.Services
                   COALESCE(SUM(CASE WHEN o.OrderStatus<>'Cancelled' THEN o.GrandTotal ELSE 0 END),0) AS TotalRevenue,
                   COALESCE(SUM(CASE WHEN o.OrderStatus NOT IN('Cancelled','Billed') THEN o.GrandTotal ELSE 0 END),0) AS UnbilledAmount
                 FROM orders o
-                JOIN bookings b ON b.BookingId = o.BookingId AND b.HotelId = @HId
-                WHERE DATE(o.CreatedAt) BETWEEN @From AND @To",
+                WHERE o.HotelId = @HId
+                  AND DATE(o.CreatedAt) BETWEEN @From AND @To",
                 new { HId = hotelId, From = from, To = to }) ?? new OrderSummaryStats();
+        }
+
+        // ── OMS REPORTS ────────────────────────────────────────────────────────
+
+        /// <summary>Detailed order list for the OMS report page, with full filters.</summary>
+        public async Task<(IEnumerable<Order> Items, int Total)> GetOrderReport(
+            int hotelId, DateTime from, DateTime to,
+            string? orderType, string? category, string? status,
+            int page, int pageSize)
+        {
+            using var db = GetDb();
+            var where = "WHERE HotelId=@HId AND DATE(OrderDate) BETWEEN @From AND @To";
+            if (!string.IsNullOrEmpty(orderType)) where += " AND OrderType=@OType";
+            if (!string.IsNullOrEmpty(category))  where += " AND Category=@Cat";
+            if (!string.IsNullOrEmpty(status))    where += " AND OrderStatus=@Status";
+
+            var total = await db.ExecuteScalarAsync<int>(
+                $"SELECT COUNT(*) FROM vw_OrderDetails {where}",
+                new { HId=hotelId, From=from, To=to, OType=orderType, Cat=category, Status=status });
+
+            var items = await db.QueryAsync<Order>(
+                $"SELECT * FROM vw_OrderDetails {where} ORDER BY OrderDate DESC LIMIT {pageSize} OFFSET {(page-1)*pageSize}",
+                new { HId=hotelId, From=from, To=to, OType=orderType, Cat=category, Status=status });
+
+            return (items, total);
+        }
+
+        /// <summary>Revenue grouped by category for the date range.</summary>
+        public async Task<IEnumerable<dynamic>> GetOrderRevenueByCategory(
+            int hotelId, DateTime from, DateTime to, string? orderType)
+        {
+            using var db = GetDb();
+            var where = "WHERE HotelId=@HId AND DATE(CreatedAt) BETWEEN @From AND @To AND OrderStatus <> 'Cancelled'";
+            if (!string.IsNullOrEmpty(orderType)) where += " AND OrderType=@OType";
+            return await db.QueryAsync(
+                $@"SELECT Category,
+                          COUNT(*) AS OrderCount,
+                          COALESCE(SUM(SubTotal),0)    AS SubTotal,
+                          COALESCE(SUM(TaxAmount),0)   AS TaxAmount,
+                          COALESCE(SUM(GrandTotal),0)  AS Revenue
+                   FROM orders {where}
+                   GROUP BY Category
+                   ORDER BY Revenue DESC",
+                new { HId=hotelId, From=from, To=to, OType=orderType });
+        }
+
+        /// <summary>Daily revenue totals for the trend chart.</summary>
+        public async Task<IEnumerable<dynamic>> GetOrderRevenueByDay(
+            int hotelId, DateTime from, DateTime to, string? orderType)
+        {
+            using var db = GetDb();
+            var where = "WHERE HotelId=@HId AND DATE(CreatedAt) BETWEEN @From AND @To AND OrderStatus <> 'Cancelled'";
+            if (!string.IsNullOrEmpty(orderType)) where += " AND OrderType=@OType";
+            return await db.QueryAsync(
+                $@"SELECT DATE(CreatedAt) AS Day,
+                          COUNT(*) AS OrderCount,
+                          COALESCE(SUM(GrandTotal),0) AS Revenue
+                   FROM orders {where}
+                   GROUP BY DATE(CreatedAt)
+                   ORDER BY Day ASC",
+                new { HId=hotelId, From=from, To=to, OType=orderType });
+        }
+
+        /// <summary>Top-selling catalog items by quantity and revenue.</summary>
+        public async Task<IEnumerable<dynamic>> GetTopOrderItems(
+            int hotelId, DateTime from, DateTime to, string? category, int topN = 10)
+        {
+            using var db = GetDb();
+            var where = @"WHERE o.HotelId=@HId
+                            AND DATE(o.CreatedAt) BETWEEN @From AND @To
+                            AND o.OrderStatus <> 'Cancelled'";
+            if (!string.IsNullOrEmpty(category)) where += " AND o.Category=@Cat";
+            return await db.QueryAsync(
+                $@"SELECT oi.ItemName,
+                          o.Category,
+                          COUNT(DISTINCT o.OrderId)       AS OrderCount,
+                          COALESCE(SUM(oi.Quantity),0)    AS TotalQty,
+                          COALESCE(SUM(oi.LineTotalWithTax),0) AS Revenue
+                   FROM orderitems oi
+                   JOIN orders o ON o.OrderId = oi.OrderId
+                   {where}
+                   GROUP BY oi.ItemName, o.Category
+                   ORDER BY Revenue DESC
+                   LIMIT {topN}",
+                new { HId=hotelId, From=from, To=to, Cat=category });
         }
 
         // ── BILL ENTRIES ───────────────────────────────────────────────────────
