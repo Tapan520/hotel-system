@@ -268,15 +268,71 @@ namespace HotelChannelManager.Services
         }
 
         // ── AVAILABILITY ───────────────────────────────────────────────────
+
+        /// <summary>
+        /// Ensures roomavailability rows exist for every room type × every date in [from, to].
+        /// TotalRooms is set from the count of active 'Available' rooms for that type.
+        /// Uses ON DUPLICATE KEY so it is safe to call repeatedly and never overwrites
+        /// real TotalRooms values (only fills in missing rows with 0).
+        ///
+        /// WHY THIS IS NEEDED:
+        /// roomavailability rows are only created lazily when a booking is attempted.
+        /// Before any booking exists the table is empty → GetAvailability returns nothing
+        /// → admin "View Availability" is blank; GetPriceQuote finds avail=0 for every
+        /// date → every room shows "Unavailable" on the frontend.
+        /// </summary>
+        public async Task EnsureAvailabilityRows(
+            System.Data.IDbConnection db, int? roomTypeId, DateTime from, DateTime to)
+        {
+            // Get all active room types in scope
+            var rtIds = roomTypeId.HasValue
+                ? new[] { roomTypeId.Value }
+                : (await db.QueryAsync<int>("SELECT RoomTypeId FROM roomtypes WHERE IsActive=1")).ToArray();
+
+            foreach (var rtId in rtIds)
+            {
+                // Count of active rooms = TotalRooms for this type
+                var total = await db.ExecuteScalarAsync<int>(
+                    "SELECT COUNT(*) FROM rooms WHERE RoomTypeId=@RtId AND IsActive=1",
+                    new { RtId = rtId });
+
+                if (total == 0) continue; // no rooms configured — skip
+
+                for (var d = from.Date; d <= to.Date; d = d.AddDays(1))
+                {
+                    await db.ExecuteAsync(@"
+                        INSERT INTO roomavailability(RoomTypeId,AvailDate,TotalRooms,BlockedRooms,BookedRooms)
+                        VALUES(@RtId,@D,@Total,0,0)
+                        ON DUPLICATE KEY UPDATE
+                            TotalRooms=IF(TotalRooms=0 OR TotalRooms<@Total, @Total, TotalRooms)",
+                        new { RtId = rtId, D = d, Total = total });
+                }
+            }
+        }
+
         public async Task<IEnumerable<RoomAvailability>> GetAvailability(int? rtId, DateTime from, DateTime to)
         {
             using var db = GetDb();
+            // Auto-provision missing rows so the grid is never empty just because
+            // no booking has ever been attempted for this date range.
+            await EnsureAvailabilityRows(db, rtId, from, to);
+
             var sql = @"SELECT ra.*,rt.TypeName FROM roomavailability ra
                         JOIN roomtypes rt ON rt.RoomTypeId=ra.RoomTypeId
                         WHERE ra.AvailDate BETWEEN @From AND @To";
             if (rtId.HasValue) sql += " AND ra.RoomTypeId=@RtId";
             sql += " ORDER BY ra.AvailDate,rt.SortOrder";
             return await db.QueryAsync<RoomAvailability>(sql, new { From=from, To=to, RtId=rtId });
+        }
+
+        /// <summary>
+        /// Public entry point for POST /api/availability/init.
+        /// Opens its own connection and delegates to EnsureAvailabilityRows.
+        /// </summary>
+        public async Task InitAvailability(int? roomTypeId, DateTime from, DateTime to)
+        {
+            using var db = GetDb();
+            await EnsureAvailabilityRows(db, roomTypeId, from, to);
         }
 
         public async Task BlockAvailability(BlockAvailabilityRequest req)
@@ -685,6 +741,12 @@ namespace HotelChannelManager.Services
                 commRate = partner?.CommissionPercent ?? 0;
                 quote.CommissionPercent = commRate;
             }
+
+            // Auto-provision availability rows for this date range so that rooms with
+            // no prior bookings are not falsely shown as "Unavailable" on the frontend.
+            // This is the root cause of the "all rooms unavailable" bug on a fresh DB.
+            await EnsureAvailabilityRows(db, req.RoomTypeId, req.CheckInDate, req.CheckOutDate.AddDays(-1));
+
             decimal subTotal = 0;
             var d = req.CheckInDate;
             while (d < req.CheckOutDate)
@@ -883,7 +945,19 @@ namespace HotelChannelManager.Services
             try { stats.PendingCheckouts=await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM bookings WHERE HotelId=@H AND CheckOutDate<=@D AND BookingStatus='CheckedIn'",new{H=hotelId,D=today}); } catch { }
             try { var av=(await GetAvailability(null,today,today)).ToList(); stats.TotalRooms=av.Sum(a=>a.TotalRooms); stats.TotalAvailableRooms=av.Sum(a=>a.AvailableRooms); stats.OccupancyRate=stats.TotalRooms>0?Math.Round((decimal)av.Sum(a=>a.BookedRooms)*100/stats.TotalRooms,1):0; } catch { }
             try { stats.ChannelSummary=(await db.QueryAsync<ChannelRevenueSummary>("SELECT * FROM vw_ChannelRevenueSummary")).AsList(); } catch { stats.ChannelSummary=new(); }
-            try { stats.RoomOccupancy=(await db.QueryAsync<RoomTypeOccupancy>(@"SELECT rt.TypeName,ra.TotalRooms,ra.BlockedRooms,ra.BookedRooms,(ra.TotalRooms-ra.BlockedRooms-ra.BookedRooms) AS AvailableRooms,CASE WHEN ra.TotalRooms>0 THEN ROUND(ra.BookedRooms*100.0/ra.TotalRooms,1) ELSE 0 END AS OccupancyPct FROM roomavailability ra JOIN roomtypes rt ON rt.RoomTypeId=ra.RoomTypeId WHERE ra.AvailDate=@D AND rt.HotelId=@H ORDER BY rt.SortOrder",new{D=today,H=hotelId})).AsList(); } catch { stats.RoomOccupancy=new(); }
+            // RoomOccupancy: use GetAvailability so rows are auto-provisioned if missing
+            try {
+                var avToday = (await GetAvailability(hotelId == 0 ? (int?)null : null, today, today)).ToList();
+                stats.RoomOccupancy = avToday.Select(a => new RoomTypeOccupancy {
+                    TypeName       = a.TypeName,
+                    TotalRooms     = a.TotalRooms,
+                    BlockedRooms   = a.BlockedRooms,
+                    BookedRooms    = a.BookedRooms,
+                    AvailableRooms = a.AvailableRooms,
+                    OccupancyPct   = a.TotalRooms > 0
+                        ? Math.Round(a.BookedRooms * 100.0m / a.TotalRooms, 1) : 0
+                }).ToList();
+            } catch { stats.RoomOccupancy = new(); }
             try { stats.RecentBookings=(await db.QueryAsync<RecentBooking>("SELECT BookingId,BookingReference,GuestName,RoomTypeName,CheckInDate,GrandTotal,BookingStatus,ChannelName,BookingDate AS CreatedAt FROM vw_BookingDetails ORDER BY BookingDate DESC LIMIT 10")).AsList(); } catch { stats.RecentBookings=new(); }
             return stats;
         }
