@@ -276,7 +276,27 @@ tr:hover td{background:#fafbfd;}
 
 <script>
 const API='/api'; // Relative URL — works on any domain/port
-let token='',curUser=null,curPage='dashboard';
+
+// ── TOKEN PERSISTENCE ─────────────────────────────────────────────────────────
+// Store token in localStorage so it survives page refreshes and tab reopens.
+// On Railway (or any cloud host) the page can be hard-refreshed; an in-memory
+// variable would lose the token and every protected API call would return 401.
+let token    = localStorage.getItem('hcm_token')  || '';
+let curUser  = JSON.parse(localStorage.getItem('hcm_user') || 'null');
+let curPage  = 'dashboard';
+
+// Auto-restore session when page loads (token already in localStorage)
+window.addEventListener('DOMContentLoaded', () => {
+  if (token && curUser) {
+    document.getElementById('loginWrap').style.display = 'none';
+    document.getElementById('appWrap').style.display   = 'block';
+    document.getElementById('sbAv').textContent        = (curUser.fullName || curUser.username)[0].toUpperCase();
+    document.getElementById('sbName').textContent      = curUser.fullName || curUser.username;
+    document.getElementById('sbRole').textContent      = curUser.role;
+    document.getElementById('todayDate').textContent   = new Date().toLocaleDateString('en-IN',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+    setupNav(); loadHotelBranding(); goPage('dashboard');
+  }
+});
 
 // ─── AUTH ───────────────────────────────────────────────────
 async function doLogin(){
@@ -311,6 +331,9 @@ async function doLogin(){
 
     if(d.success){
       token=d.data.token; curUser=d.data;
+      // Persist to localStorage — survives page refresh on Railway / cloud hosts
+      localStorage.setItem('hcm_token', token);
+      localStorage.setItem('hcm_user',  JSON.stringify(d.data));
       document.getElementById('loginWrap').style.display='none';
       document.getElementById('appWrap').style.display='block';
       document.getElementById('sbAv').textContent=(d.data.fullName||d.data.username)[0].toUpperCase();
@@ -335,6 +358,9 @@ async function doLogin(){
 
 function logout(){
   token=''; curUser=null;
+  // Clear persisted session so stale token is not re-used after logout
+  localStorage.removeItem('hcm_token');
+  localStorage.removeItem('hcm_user');
   document.getElementById('appWrap').style.display='none';
   document.getElementById('loginWrap').style.display='flex';
   document.getElementById('lpwd').value='';
@@ -379,7 +405,13 @@ async function api(method,path,body){
     };
     if(body!==undefined) opts.body=JSON.stringify(body);
     const r=await fetch(`${API}${path}`,opts);
-    if(r.status===401){ logout(); return null; }
+    if(r.status===401){
+      // Token expired or invalid — clear storage and force re-login
+      localStorage.removeItem('hcm_token');
+      localStorage.removeItem('hcm_user');
+      logout();
+      return null;
+    }
     if(!r.ok && r.status===403) return {success:false,message:'Access denied — insufficient permissions'};
     const text=await r.text();
     if(!text) return {success:true,message:'OK'};
@@ -1227,7 +1259,23 @@ async function saveDefRate(id){
 async function pgAvailability(){
   const rtRes=await api('GET','/room-types?hotelId=1');
   const rts=rtRes?.data||[];
+  if(!rts.length){
+    document.getElementById('pageContent').innerHTML=`<div class="card card-pad"><div class="empty-state">⚠️ No room types found. Please add room types and rooms first.</div></div>`;
+    return;
+  }
+  const oneYearLater=todayStr(365);
   document.getElementById('pageContent').innerHTML=`
+  <div class="card card-pad" style="margin-bottom:1rem;border-left:4px solid var(--p)">
+    <div class="card-title" style="margin-bottom:.5rem">🚀 Initialize Availability <span style="font-size:.75rem;font-weight:400;color:var(--txt2)">(Run once on fresh setup or after adding rooms)</span></div>
+    <p style="font-size:.82rem;color:var(--txt2);margin-bottom:.8rem">Seeds the availability calendar so rooms show as <strong>Available</strong> on the guest portal. Safe to run multiple times — existing blocked/booked counts are preserved.</p>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:flex-end">
+      <div class="ff"><label>From Date</label><input type="date" id="initFrom" value="${todayStr()}"></div>
+      <div class="ff"><label>To Date</label><input type="date" id="initTo" value="${oneYearLater}"></div>
+      <div class="ff"><label>Room Type</label><select id="initRT"><option value="">All Types</option>${rts.map(r=>`<option value="${r.roomTypeId}">${r.typeName}</option>`).join('')}</select></div>
+      <button class="btn btn-p" id="initBtn" onclick="initAvailability()" style="white-space:nowrap">⚡ Initialize Now</button>
+    </div>
+    <div id="initAlert" style="margin-top:.5rem"></div>
+  </div>
   <div class="two-col">
   <div class="card card-pad">
     <div class="card-title" style="margin-bottom:1rem">🔒 Block / Unblock Rooms</div>
@@ -1251,19 +1299,53 @@ async function pgAvailability(){
       <div class="ff"><label>To</label><input type="date" id="avVTo" value="${todayStr(14)}"></div>
       <button class="btn btn-p btn-sm" style="align-self:flex-end" onclick="loadAvailGrid()">View</button>
     </div>
-    <div id="avGrid"></div>
+    <div id="avGrid"><div style="text-align:center;padding:1rem;color:var(--txt2);font-size:.82rem"><span class="spin"></span> Loading…</div></div>
   </div>
   </div>`;
   loadAvailGrid();
 }
 
-async function blockRooms(){
-  const d=await api('POST','/availability/block',{roomTypeId:parseInt(document.getElementById('avRT').value),fromDate:document.getElementById('avFrom').value,toDate:document.getElementById('avTo').value,blockCount:parseInt(document.getElementById('avCnt').value)});
-  if(d?.success){showAlert('avAlert','✅ Rooms blocked','alert-ok');loadAvailGrid();}else showAlert('avAlert',d?.message||'Failed','alert-err');
+async function initAvailability(){
+  const fromDate=document.getElementById('initFrom').value;
+  const toDate=document.getElementById('initTo').value;
+  const rtVal=document.getElementById('initRT').value;
+  if(!fromDate||!toDate){showAlert('initAlert','Please select both dates','alert-err');return;}
+  if(toDate<fromDate){showAlert('initAlert','To date must be after from date','alert-err');return;}
+  const btn=document.getElementById('initBtn');
+  btn.disabled=true; btn.textContent='⏳ Initializing…';
+  showAlert('initAlert','Seeding availability rows — this may take a moment for large date ranges…','alert-ok');
+  const body={fromDate,toDate};
+  if(rtVal) body.roomTypeId=parseInt(rtVal);
+  const d=await api('POST','/availability/init',body);
+  btn.disabled=false; btn.textContent='⚡ Initialize Now';
+  if(d?.success){showAlert('initAlert','✅ '+d.message,'alert-ok');loadAvailGrid();}
+  else showAlert('initAlert',d?.message||'Initialization failed','alert-err');
 }
+
+async function blockRooms(){
+  const rtId=parseInt(document.getElementById('avRT').value);
+  const fromDate=document.getElementById('avFrom').value;
+  const toDate=document.getElementById('avTo').value;
+  const blockCount=parseInt(document.getElementById('avCnt').value);
+  if(!rtId||!fromDate||!toDate||isNaN(blockCount)||blockCount<1){
+    showAlert('avAlert','Please fill all fields correctly','alert-err'); return;
+  }
+  const d=await api('POST','/availability/block',{roomTypeId:rtId,fromDate,toDate,blockCount});
+  if(d?.success){showAlert('avAlert','✅ Rooms blocked successfully','alert-ok');loadAvailGrid();}
+  else showAlert('avAlert',d?.message||'Block failed — check you are logged in','alert-err');
+}
+
 async function unblockRooms(){
-  const d=await api('POST','/availability/unblock',{roomTypeId:parseInt(document.getElementById('avRT').value),fromDate:document.getElementById('avFrom').value,toDate:document.getElementById('avTo').value,blockCount:parseInt(document.getElementById('avCnt').value)});
-  if(d?.success){showAlert('avAlert','✅ Rooms unblocked','alert-ok');loadAvailGrid();}else showAlert('avAlert',d?.message||'Failed','alert-err');
+  const rtId=parseInt(document.getElementById('avRT').value);
+  const fromDate=document.getElementById('avFrom').value;
+  const toDate=document.getElementById('avTo').value;
+  const blockCount=parseInt(document.getElementById('avCnt').value);
+  if(!rtId||!fromDate||!toDate||isNaN(blockCount)||blockCount<1){
+    showAlert('avAlert','Please fill all fields correctly','alert-err'); return;
+  }
+  const d=await api('POST','/availability/unblock',{roomTypeId:rtId,fromDate,toDate,blockCount});
+  if(d?.success){showAlert('avAlert','✅ Rooms unblocked successfully','alert-ok');loadAvailGrid();}
+  else showAlert('avAlert',d?.message||'Unblock failed — check you are logged in','alert-err');
 }
 
 async function loadAvailGrid(){
@@ -1281,7 +1363,7 @@ async function loadAvailGrid(){
       <td style="color:var(--ok);font-weight:700">${a.availableRooms}</td>
       <td><div class="occ-bar"><div class="occ-fill" style="width:${Math.round(a.bookedRooms/Math.max(a.totalRooms,1)*100)}%;background:${a.availableRooms===0?'var(--err)':'var(--ok)'}"></div></div></td>
     </tr>`).join('')}
-    ${items.length===0?`<tr><td colspan="7" class="empty-state">No availability data found.</td></tr>`:''}
+    ${items.length===0?`<tr><td colspan="7" class="empty-state">No availability data found. Use "Initialize Availability" above first.</td></tr>`:''}
     </tbody></table></div>`;
 }
 
