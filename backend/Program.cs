@@ -40,7 +40,18 @@ builder.Services.AddSingleton<DatabaseService>();
 builder.Services.AddSingleton<AuthService>();
 
 // ── JWT Authentication ─────────────────────────────────────────────────────────
-var jwtKey = builder.Configuration["Jwt:Key"]!;
+// .NET automatically maps env vars with __ separator to config sections.
+// e.g. Railway env var  Jwt__Key  overrides  appsettings.json "Jwt": { "Key": ... }
+// We read the final resolved value here and log it at startup so mismatches are
+// immediately visible in Railway logs (Settings → Logs).
+var jwtKey      = builder.Configuration["Jwt:Key"]      ?? throw new InvalidOperationException("Jwt:Key is not configured. Set the Jwt__Key environment variable in Railway.");
+var jwtIssuer   = builder.Configuration["Jwt:Issuer"]   ?? "HotelChannelManager";
+var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "HotelChannelManagerClients";
+
+Console.WriteLine($"🔑 JWT Issuer   : {jwtIssuer}");
+Console.WriteLine($"🔑 JWT Audience : {jwtAudience}");
+Console.WriteLine($"🔑 JWT Key hash : {jwtKey.GetHashCode()} (first 4 chars: {jwtKey[..Math.Min(4, jwtKey.Length)]}***)");
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(opt =>
     {
@@ -49,9 +60,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
             ValidateIssuer = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidIssuer = jwtIssuer,
             ValidateAudience = true,
-            ValidAudience = builder.Configuration["Jwt:Audience"],
+            ValidAudience = jwtAudience,
             ValidateLifetime = true,
             ClockSkew = TimeSpan.Zero
         };
@@ -195,4 +206,6 @@ using (var scope = app.Services.CreateScope())
 }
 Console.WriteLine("");
 
-app.Run();
+// Railway injects PORT env var — must listen on it, not hardcoded 5000
+var port = Environment.GetEnvironmentVariable("PORT") ?? "5000";
+app.Run($"http://0.0.0.0:{port}");
