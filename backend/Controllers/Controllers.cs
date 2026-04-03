@@ -284,6 +284,28 @@ namespace HotelChannelManager.Controllers
             return Ok(ApiResponse<object>.Ok(avail));
         }
 
+        /// <summary>
+        /// POST /api/availability/init
+        /// Admin-triggered bulk initialisation of roomavailability rows.
+        /// Call this once after setting up room types and rooms on a fresh DB
+        /// so the frontend shows correct availability instead of all-Unavailable.
+        /// Body: { "fromDate": "2026-01-01", "toDate": "2026-12-31", "roomTypeId": null }
+        /// roomTypeId is optional — omit (or null) to init ALL room types.
+        /// </summary>
+        [HttpPost("init")]
+        [Authorize(Roles = "SuperAdmin,HotelAdmin")]
+        public async Task<IActionResult> Init([FromBody] InitAvailabilityRequest req)
+        {
+            if (req.ToDate < req.FromDate)
+                return BadRequest(ApiResponse<string>.Fail("toDate must be >= fromDate"));
+            if ((req.ToDate - req.FromDate).TotalDays > 730)
+                return BadRequest(ApiResponse<string>.Fail("Date range cannot exceed 2 years"));
+
+            await _db.InitAvailability(req.RoomTypeId, req.FromDate, req.ToDate);
+            return Ok(ApiResponse<string>.Ok(
+                $"Availability initialised from {req.FromDate:yyyy-MM-dd} to {req.ToDate:yyyy-MM-dd}"));
+        }
+
         [HttpPost("block")]
         [Authorize(Roles = "SuperAdmin,HotelAdmin,FrontDesk,Reservations")]
         public async Task<IActionResult> Block([FromBody] BlockAvailabilityRequest req)
