@@ -168,6 +168,18 @@ namespace HotelChannelManager.DTOs
         public string? Reason { get; set; }
     }
 
+    /// <summary>
+    /// Request body for POST /api/availability/init
+    /// Bulk-seeds roomavailability rows so all rooms show correct status
+    /// on a fresh Railway deployment before any bookings have been made.
+    /// </summary>
+    public class InitAvailabilityRequest
+    {
+        [Required] public DateTime FromDate { get; set; } = DateTime.Today;
+        [Required] public DateTime ToDate   { get; set; } = DateTime.Today.AddMonths(12);
+        public int? RoomTypeId { get; set; } // null = all room types
+    }
+
     // ── Payment DTOs ──────────────────────────────────────────────────
     public class RecordPaymentRequest
     {
