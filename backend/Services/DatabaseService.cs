@@ -668,16 +668,53 @@ namespace HotelChannelManager.Services
             return (p.Get<string>("p_Msg") ?? "", p.Get<decimal>("p_Charge"));
         }
 
+        // ── SAFE BOOKING SELECT ────────────────────────────────────────────
+        // MySQL 9 changed how derived/computed columns in views are typed.
+        // Expressions like (GrandTotal - AmountPaid) return DECIMAL(65,30) and
+        // DATEDIFF() returns BIGINT — both crash Dapper mapping to C# decimal/int.
+        // Explicit CAST on every derived column fixes this for MySQL 8.4 and 9.x.
+        private const string BookingSelectSafe = @"
+            SELECT
+                BookingId, BookingReference, HotelId, RoomTypeId,
+                RoomId, CustomerId, PartnerId,
+                CheckInDate, CheckOutDate,
+                CAST(TotalNights        AS SIGNED)        AS TotalNights,
+                AdultsCount, ChildrenCount,
+                CAST(RoomRate           AS DECIMAL(10,2)) AS RoomRate,
+                CAST(SubTotal           AS DECIMAL(10,2)) AS SubTotal,
+                CAST(TaxAmount          AS DECIMAL(10,2)) AS TaxAmount,
+                CAST(DiscountAmount     AS DECIMAL(10,2)) AS DiscountAmount,
+                CAST(GrandTotal         AS DECIMAL(10,2)) AS GrandTotal,
+                CAST(AddonTotal         AS DECIMAL(10,2)) AS AddonTotal,
+                CAST(CommissionAmount   AS DECIMAL(10,2)) AS CommissionAmount,
+                CAST(NetToHotel         AS DECIMAL(10,2)) AS NetToHotel,
+                CAST(AmountPaid         AS DECIMAL(10,2)) AS AmountPaid,
+                CAST(BalanceDue         AS DECIMAL(10,2)) AS BalanceDue,
+                PaymentMode, BookingStatus, BookingSource,
+                SpecialRequests, InternalNotes,
+                CancellationReason,
+                CAST(CancellationCharge AS DECIMAL(10,2)) AS CancellationCharge,
+                CancelledAt, CheckedInAt, CheckedOutAt,
+                ConfirmedAt, CreatedAt,
+                HotelName, CurrencyCode,
+                RoomTypeName, RoomNumber,
+                GuestName, GuestEmail, GuestPhone,
+                Nationality, IDType, IDNumber, VIPStatus,
+                ChannelName, PartnerCode
+            FROM vw_BookingDetails";
+
         public async Task<Booking?> GetBooking(int id)
         {
             using var db = GetDb();
-            return await db.QueryFirstOrDefaultAsync<Booking>("SELECT * FROM vw_BookingDetails WHERE BookingId=@Id", new { Id = id });
+            return await db.QueryFirstOrDefaultAsync<Booking>(
+                $"{BookingSelectSafe} WHERE BookingId=@Id", new { Id = id });
         }
 
         public async Task<Booking?> GetBookingByRef(string refNo)
         {
             using var db = GetDb();
-            return await db.QueryFirstOrDefaultAsync<Booking>("SELECT * FROM vw_BookingDetails WHERE BookingReference=@Ref", new { Ref = refNo });
+            return await db.QueryFirstOrDefaultAsync<Booking>(
+                $"{BookingSelectSafe} WHERE BookingReference=@Ref", new { Ref = refNo });
         }
 
         // ── CUSTOMER PORTAL — all bookings for a given guest email ─────────
@@ -685,23 +722,34 @@ namespace HotelChannelManager.Services
         {
             using var db = GetDb();
             return await db.QueryAsync<Booking>(
-                "SELECT * FROM vw_BookingDetails WHERE GuestEmail=@Email ORDER BY BookingDate DESC",
+                $"{BookingSelectSafe} WHERE GuestEmail=@Email ORDER BY CreatedAt DESC",
                 new { Email = email });
         }
 
         public async Task<(IEnumerable<Booking> items, int total)> GetBookings(ReportFilter f)
         {
             using var db = GetDb();
-            var where = "WHERE BookingDate BETWEEN @From AND @To";
-            if (f.PartnerId.HasValue)               where += " AND PartnerId=@PId";
-            if (!string.IsNullOrEmpty(f.Status))    where += " AND BookingStatus=@Status";
+            // Use CreatedAt (physical column) instead of BookingDate (view alias) for filtering
+            // — avoids ambiguous column reference when the view is inlined into a subquery.
+            var where = "WHERE CreatedAt BETWEEN @From AND @To";
+            if (f.PartnerId.HasValue)                   where += " AND PartnerId=@PId";
+            if (!string.IsNullOrEmpty(f.Status))        where += " AND BookingStatus=@Status";
             if (!string.IsNullOrEmpty(f.BookingSource)) where += " AND BookingSource=@Source";
+
+            // Include the full To date (up to 23:59:59) so date-only filters are inclusive
+            var p = new {
+                From   = f.FromDate.Date,
+                To     = f.ToDate.Date.AddDays(1).AddSeconds(-1),
+                PId    = f.PartnerId,
+                Status = f.Status,
+                Source = f.BookingSource
+            };
+
             var total = await db.ExecuteScalarAsync<int>(
-                $"SELECT COUNT(*) FROM vw_BookingDetails {where}",
-                new { From=f.FromDate, To=f.ToDate, PId=f.PartnerId, Status=f.Status, Source=f.BookingSource });
+                $"SELECT COUNT(*) FROM vw_BookingDetails {where}", p);
             var items = await db.QueryAsync<Booking>(
-                $"SELECT * FROM vw_BookingDetails {where} ORDER BY BookingDate DESC LIMIT {f.PageSize} OFFSET {(f.Page-1)*f.PageSize}",
-                new { From=f.FromDate, To=f.ToDate, PId=f.PartnerId, Status=f.Status, Source=f.BookingSource });
+                $"{BookingSelectSafe} {where} ORDER BY CreatedAt DESC " +
+                $"LIMIT {f.PageSize} OFFSET {(f.Page - 1) * f.PageSize}", p);
             return (items, total);
         }
 
@@ -958,7 +1006,11 @@ namespace HotelChannelManager.Services
                         ? Math.Round(a.BookedRooms * 100.0m / a.TotalRooms, 1) : 0
                 }).ToList();
             } catch { stats.RoomOccupancy = new(); }
-            try { stats.RecentBookings=(await db.QueryAsync<RecentBooking>("SELECT BookingId,BookingReference,GuestName,RoomTypeName,CheckInDate,GrandTotal,BookingStatus,ChannelName,BookingDate AS CreatedAt FROM vw_BookingDetails ORDER BY BookingDate DESC LIMIT 10")).AsList(); } catch { stats.RecentBookings=new(); }
+            try { stats.RecentBookings=(await db.QueryAsync<RecentBooking>(@"
+                SELECT BookingId, BookingReference, GuestName, RoomTypeName,
+                       CheckInDate, CAST(GrandTotal AS DECIMAL(10,2)) AS GrandTotal,
+                       BookingStatus, ChannelName, CreatedAt
+                FROM vw_BookingDetails ORDER BY CreatedAt DESC LIMIT 10")).AsList(); } catch { stats.RecentBookings=new(); }
             return stats;
         }
 
