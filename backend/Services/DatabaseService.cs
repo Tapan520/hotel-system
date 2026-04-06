@@ -701,7 +701,7 @@ namespace HotelChannelManager.Services
                 GuestName, GuestEmail, GuestPhone,
                 Nationality, IDType, IDNumber, VIPStatus,
                 ChannelName, PartnerCode
-            FROM vw_BookingDetails";
+            FROM vw_bookingdetails";
 
         public async Task<Booking?> GetBooking(int id)
         {
@@ -746,7 +746,7 @@ namespace HotelChannelManager.Services
             };
 
             var total = await db.ExecuteScalarAsync<int>(
-                $"SELECT COUNT(*) FROM vw_BookingDetails {where}", p);
+                $"SELECT COUNT(*) FROM vw_bookingdetails {where}", p);
             var items = await db.QueryAsync<Booking>(
                 $"{BookingSelectSafe} {where} ORDER BY CreatedAt DESC " +
                 $"LIMIT {f.PageSize} OFFSET {(f.Page - 1) * f.PageSize}", p);
@@ -992,7 +992,7 @@ namespace HotelChannelManager.Services
             try { stats.TotalBookingsThisMonth=await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM bookings WHERE HotelId=@H AND YEAR(CreatedAt)=YEAR(@D) AND MONTH(CreatedAt)=MONTH(@D)",new{H=hotelId,D=today}); } catch { }
             try { stats.PendingCheckouts=await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM bookings WHERE HotelId=@H AND CheckOutDate<=@D AND BookingStatus='CheckedIn'",new{H=hotelId,D=today}); } catch { }
             try { var av=(await GetAvailability(null,today,today)).ToList(); stats.TotalRooms=av.Sum(a=>a.TotalRooms); stats.TotalAvailableRooms=av.Sum(a=>a.AvailableRooms); stats.OccupancyRate=stats.TotalRooms>0?Math.Round((decimal)av.Sum(a=>a.BookedRooms)*100/stats.TotalRooms,1):0; } catch { }
-            try { stats.ChannelSummary=(await db.QueryAsync<ChannelRevenueSummary>("SELECT * FROM vw_ChannelRevenueSummary")).AsList(); } catch { stats.ChannelSummary=new(); }
+            try { stats.ChannelSummary=(await db.QueryAsync<ChannelRevenueSummary>("SELECT * FROM vw_channelrevenuesummary")).AsList(); } catch { stats.ChannelSummary=new(); }
             // RoomOccupancy: use GetAvailability so rows are auto-provisioned if missing
             try {
                 var avToday = (await GetAvailability(hotelId == 0 ? (int?)null : null, today, today)).ToList();
@@ -1010,7 +1010,7 @@ namespace HotelChannelManager.Services
                 SELECT BookingId, BookingReference, GuestName, RoomTypeName,
                        CheckInDate, CAST(GrandTotal AS DECIMAL(10,2)) AS GrandTotal,
                        BookingStatus, ChannelName, CreatedAt
-                FROM vw_BookingDetails ORDER BY CreatedAt DESC LIMIT 10")).AsList(); } catch { stats.RecentBookings=new(); }
+                FROM vw_bookingdetails ORDER BY CreatedAt DESC LIMIT 10")).AsList(); } catch { stats.RecentBookings=new(); }
             return stats;
         }
 
@@ -1655,7 +1655,7 @@ namespace HotelChannelManager.Services
         {
             using var db = GetDb();
             return await db.QueryAsync<BillEntry>(
-                "SELECT * FROM vw_BookingFolio WHERE BookingId=@BId ORDER BY PostedAt",
+                "SELECT * FROM vw_bookingfolio WHERE BookingId=@BId ORDER BY PostedAt",
                 new { BId = bookingId });
         }
 
