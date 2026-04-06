@@ -1226,7 +1226,7 @@ namespace HotelChannelManager.Services
                     OrderId = orderId, item.CatalogId, item.ItemName, item.Description,
                     item.Quantity, item.UnitPrice, item.TaxPercent, item.Notes
                 });
-            await db.ExecuteAsync("CALL sp_RecalcOrder(@Id)", new { Id = orderId });
+            await RecalcOrderTotals(db, orderId);
         }
 
         public async Task RemoveOrderItem(int orderItemId)
@@ -1235,7 +1235,73 @@ namespace HotelChannelManager.Services
             var orderId = await db.ExecuteScalarAsync<int>(
                 "SELECT OrderId FROM orderitems WHERE OrderItemId=@Id", new { Id = orderItemId });
             await db.ExecuteAsync("DELETE FROM orderitems WHERE OrderItemId=@Id", new { Id = orderItemId });
-            if (orderId > 0) await db.ExecuteAsync("CALL sp_RecalcOrder(@Id)", new { Id = orderId });
+            if (orderId > 0) await RecalcOrderTotals(db, orderId);
+        }
+
+        /// <summary>
+        /// Pure C# replacement for the sp_RecalcOrder stored procedure.
+        ///
+        /// ROOT CAUSE OF GRANDTOTAL=0 BUG:
+        /// The original code called "CALL sp_RecalcOrder(@Id)" after every item insert/delete.
+        /// On Railway (fresh MySQL instance) this stored procedure does not exist unless it was
+        /// explicitly created by a migration script. When the CALL fails the exception is swallowed
+        /// by the controller's try/catch and GrandTotal/SubTotal/TaxAmount stay at 0.
+        ///
+        /// FIX: Inline the recalculation here in C# so it always runs regardless of DB state.
+        ///
+        /// FORMULA (per item):
+        ///   LineTotal        = Quantity × UnitPrice                    (pre-tax base)
+        ///   TaxAmount        = ROUND(LineTotal × TaxPercent / 100, 2)
+        ///   LineTotalWithTax = LineTotal + TaxAmount
+        ///
+        /// ORDER TOTALS:
+        ///   SubTotal  = SUM(LineTotal)            — pre-tax
+        ///   TaxAmount = SUM(item.TaxAmount)        — tax only
+        ///   GrandTotal= SubTotal + TaxAmount       — what the guest pays
+        /// </summary>
+        private static async Task RecalcOrderTotals(System.Data.IDbConnection db, int orderId)
+        {
+            // Step 1: Fetch all items for this order
+            var items = (await db.QueryAsync<dynamic>(
+                "SELECT OrderItemId, Quantity, UnitPrice, TaxPercent FROM orderitems WHERE OrderId=@Id",
+                new { Id = orderId })).ToList();
+
+            decimal subTotal  = 0m;
+            decimal taxTotal  = 0m;
+
+            // Step 2: Recalculate each item row's computed columns
+            foreach (var it in items)
+            {
+                decimal qty        = (decimal)it.Quantity;
+                decimal unitPrice  = (decimal)it.UnitPrice;
+                decimal taxPct     = (decimal)it.TaxPercent;
+
+                decimal lineTotal        = qty * unitPrice;
+                decimal taxAmount        = Math.Round(lineTotal * taxPct / 100m, 2);
+                decimal lineTotalWithTax = lineTotal + taxAmount;
+
+                await db.ExecuteAsync(@"
+                    UPDATE orderitems
+                    SET TaxAmount        = @Tax,
+                        LineTotal        = @Line,
+                        LineTotalWithTax = @LineWithTax
+                    WHERE OrderItemId    = @ItemId",
+                    new { Tax = taxAmount, Line = lineTotal, LineWithTax = lineTotalWithTax, ItemId = (int)it.OrderItemId });
+
+                subTotal += lineTotal;
+                taxTotal += taxAmount;
+            }
+
+            decimal grandTotal = subTotal + taxTotal;
+
+            // Step 3: Update the order header
+            await db.ExecuteAsync(@"
+                UPDATE orders
+                SET SubTotal  = @Sub,
+                    TaxAmount = @Tax,
+                    GrandTotal= @Grand
+                WHERE OrderId = @Id",
+                new { Sub = subTotal, Tax = taxTotal, Grand = grandTotal, Id = orderId });
         }
 
         public async Task<IEnumerable<OrderItem>> GetOrderItems(int orderId)
