@@ -1964,15 +1964,23 @@ async function viewOrder(orderId){
 
   <div style="font-size:.78rem;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:.5rem">Items</div>
   <div style="overflow-x:auto;margin-bottom:1rem"><table>
-    <thead><tr><th>Item</th><th>Qty</th><th>Unit Price</th><th>Tax</th><th>Total</th></tr></thead>
-    <tbody>${(items||[]).map(i=>`<tr>
-      <td><strong>${i.itemName}</strong>${i.notes?`<br><small style="color:var(--txt2)">${i.notes}</small>`:''}</td>
-      <td>${i.quantity}</td>
-      <td>${fmtMoney(i.unitPrice)}</td>
-      <td>${fmtMoney(i.taxAmount)}</td>
-      <td><strong>${fmtMoney(i.lineTotalWithTax||((i.quantity*i.unitPrice)*(1+(i.taxPercent||0)/100)))}</strong></td>
-    </tr>`).join('')}
-    <tr style="background:#f8fafc;font-weight:700"><td colspan="4" style="text-align:right">Grand Total</td><td>${fmtMoney(o.grandTotal)}</td></tr>
+    <thead><tr><th>Item</th><th>Qty</th><th>Unit Price</th><th>Tax%</th><th>Tax Amt</th><th>Line Total</th></tr></thead>
+    <tbody>${(items||[]).map(i=>{
+      const lineBase = (i.quantity||0)*(i.unitPrice||0);
+      const taxAmt   = i.taxAmount>0 ? i.taxAmount : Math.round(lineBase*(i.taxPercent||0)/100*100)/100;
+      const lineWithTax = i.lineTotalWithTax>0 ? i.lineTotalWithTax : lineBase + taxAmt;
+      return `<tr>
+        <td><strong>${i.itemName}</strong>${i.notes?`<br><small style="color:var(--txt2)">${i.notes}</small>`:''}</td>
+        <td>${i.quantity}</td>
+        <td>${fmtMoney(i.unitPrice)}</td>
+        <td style="color:var(--txt2)">${i.taxPercent||0}%</td>
+        <td style="color:var(--txt2)">${fmtMoney(taxAmt)}</td>
+        <td><strong>${fmtMoney(lineWithTax)}</strong></td>
+      </tr>`;
+    }).join('')}
+    <tr style="background:#f8fafc"><td colspan="5" style="text-align:right;color:var(--txt2)">Sub-Total (pre-tax)</td><td>${fmtMoney(o.subTotal||(items||[]).reduce((s,i)=>(s+(i.quantity||0)*(i.unitPrice||0)),0))}</td></tr>
+    <tr style="background:#f8fafc"><td colspan="5" style="text-align:right;color:var(--txt2)">Tax (GST)</td><td style="color:var(--txt2)">${fmtMoney(o.taxAmount)}</td></tr>
+    <tr style="background:#f0fdf4;font-weight:700"><td colspan="5" style="text-align:right">Grand Total</td><td style="color:var(--ok);font-size:1.05rem">${fmtMoney(o.grandTotal)}</td></tr>
     </tbody>
   </table></div>
 
@@ -2045,6 +2053,19 @@ async function printReceipt(orderId){
   const refNo = o.directReceiptNo || o.orderNumber;
 
   const w = window.open('','_blank','width=420,height=650');
+  // Pre-compute totals from items in case DB values are stale (e.g. old orders before the RecalcFix)
+  const _rcptSub   = (items||[]).reduce((s,i)=>s+(i.quantity||0)*(i.unitPrice||0), 0);
+  const _rcptTax   = (items||[]).reduce((s,i)=>{
+    const base=((i.quantity||0)*(i.unitPrice||0));
+    return s+(i.taxAmount>0 ? i.taxAmount : Math.round(base*(i.taxPercent||0)/100*100)/100);
+  }, 0);
+  const _rcptGrand = _rcptSub + _rcptTax;
+  // Use DB values if they're non-zero (correctly calculated by new RecalcOrderTotals),
+  // otherwise fall back to the JS-computed values above.
+  const rcptSub   = o.subTotal   > 0 ? o.subTotal   : _rcptSub;
+  const rcptTax   = o.taxAmount  > 0 ? o.taxAmount  : _rcptTax;
+  const rcptGrand = o.grandTotal > 0 ? o.grandTotal : _rcptGrand;
+
   w.document.write(`<!DOCTYPE html><html><head><title>Receipt ${o.orderNumber}</title>
   <style>
     body{font-family:'Courier New',monospace;font-size:12px;margin:0;padding:16px;color:#000}
@@ -2063,20 +2084,25 @@ async function printReceipt(orderId){
   <div>Category: ${o.category}</div>
   <div class="sep"></div>
   <table>
-    <tr><td class="b">Item</td><td class="b r">Qty</td><td class="b r">Price</td><td class="b r">Total</td></tr>
-    <tr><td colspan="4"><div class="sep" style="margin:2px 0"></div></td></tr>
-    ${(items||[]).map(i=>`
-    <tr>
-      <td>${i.itemName}</td>
-      <td class="r">${i.quantity}</td>
-      <td class="r">${fmtMoney(i.unitPrice)}</td>
-      <td class="r">${fmtMoney(i.lineTotalWithTax||((i.quantity*i.unitPrice)*(1+(i.taxPercent||0)/100)))}</td>
-    </tr>`).join('')}
-    <tr><td colspan="4"><div class="sep" style="margin:2px 0"></div></td></tr>
-    <tr><td colspan="3">Sub Total</td><td class="r">${fmtMoney(o.subTotal)}</td></tr>
-    <tr><td colspan="3">Tax (GST)</td><td class="r">${fmtMoney(o.taxAmount)}</td></tr>
-    <tr><td colspan="4"><div class="sep" style="margin:2px 0"></div></td></tr>
-    <tr><td colspan="3" class="big">TOTAL</td><td class="r big">${fmtMoney(o.grandTotal)}</td></tr>
+    <tr><td class="b">Item</td><td class="b r">Qty</td><td class="b r">Rate</td><td class="b r">Tax</td><td class="b r">Total</td></tr>
+    <tr><td colspan="5"><div class="sep" style="margin:2px 0"></div></td></tr>
+    ${(items||[]).map(i=>{
+      const base       = (i.quantity||0)*(i.unitPrice||0);
+      const taxAmt     = i.taxAmount>0 ? i.taxAmount : Math.round(base*(i.taxPercent||0)/100*100)/100;
+      const lineTotal  = i.lineTotalWithTax>0 ? i.lineTotalWithTax : base+taxAmt;
+      return `<tr>
+        <td>${i.itemName}</td>
+        <td class="r">${i.quantity}</td>
+        <td class="r">${fmtMoney(i.unitPrice)}</td>
+        <td class="r">${fmtMoney(taxAmt)}</td>
+        <td class="r">${fmtMoney(lineTotal)}</td>
+      </tr>`;
+    }).join('')}
+    <tr><td colspan="5"><div class="sep" style="margin:2px 0"></div></td></tr>
+    <tr><td colspan="4">Sub Total</td><td class="r">${fmtMoney(rcptSub)}</td></tr>
+    <tr><td colspan="4">Tax (GST)</td><td class="r">${fmtMoney(rcptTax)}</td></tr>
+    <tr><td colspan="5"><div class="sep" style="margin:2px 0"></div></td></tr>
+    <tr><td colspan="4" class="big">TOTAL</td><td class="r big">${fmtMoney(rcptGrand)}</td></tr>
   </table>
   <div class="sep"></div>
   <div class="c sm">Thank you for visiting!</div>
@@ -2246,13 +2272,15 @@ function renderOrderItems(){
     sumEl.innerHTML=''; cntEl.textContent=''; return;
   }
   cntEl.textContent = `(${_newOrderItems.length})`;
-  let sub=0;
-  el.innerHTML=`<div style="overflow-x:auto"><table><thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Tax</th><th>Line Total</th><th></th></tr></thead><tbody>
+  let subTotal = 0;
+  let taxTotal = 0;
+  el.innerHTML=`<div style="overflow-x:auto"><table><thead><tr><th>Item</th><th>Qty</th><th>Rate</th><th>Tax%</th><th>Tax Amt</th><th>Line Total</th><th></th></tr></thead><tbody>
     ${_newOrderItems.map((it,idx)=>{
-      const lineAmt   = it.quantity * it.unitPrice;
-      const taxAmt    = lineAmt * it.taxPercent / 100;
-      const lineTotal = lineAmt + taxAmt;
-      sub += lineTotal;
+      const lineBase  = it.quantity * it.unitPrice;           // pre-tax subtotal for this line
+      const taxAmt    = Math.round(lineBase * it.taxPercent / 100 * 100) / 100;
+      const lineTotal = lineBase + taxAmt;                    // what guest pays for this line
+      subTotal += lineBase;
+      taxTotal += taxAmt;
       return `<tr>
         <td><strong>${it.itemName}</strong></td>
         <td><div class="stepper">
@@ -2261,13 +2289,20 @@ function renderOrderItems(){
           <button onclick="changeQty(${idx},1)">+</button>
         </div></td>
         <td>${fmtMoney(it.unitPrice)}</td>
+        <td style="color:var(--txt2)">${it.taxPercent}%</td>
         <td style="color:var(--txt2)">${fmtMoney(taxAmt)}</td>
         <td><strong>${fmtMoney(lineTotal)}</strong></td>
         <td><button class="btn btn-err btn-sm" onclick="removeOrderItem(${idx})">✕</button></td>
       </tr>`;
     }).join('')}
   </tbody></table></div>`;
-  sumEl.innerHTML=`<div style="text-align:right;font-size:.88rem;font-weight:700;color:var(--p);margin-top:.5rem;padding-top:.5rem;border-top:1px solid var(--bdr)">Total: ${fmtMoney(sub)}</div>`;
+  const grandTotal = subTotal + taxTotal;
+  sumEl.innerHTML=`
+    <div style="text-align:right;font-size:.82rem;margin-top:.5rem;padding-top:.5rem;border-top:1px solid var(--bdr)">
+      <div style="color:var(--txt2)">Sub-Total: ${fmtMoney(subTotal)}</div>
+      <div style="color:var(--txt2)">Tax (GST): ${fmtMoney(taxTotal)}</div>
+      <div style="font-size:1rem;font-weight:700;color:var(--p);margin-top:.3rem">Grand Total: ${fmtMoney(grandTotal)}</div>
+    </div>`;
 }
 
 function changeQty(idx,delta){_newOrderItems[idx].quantity=Math.max(1,(_newOrderItems[idx].quantity||1)+delta);renderOrderItems();}
