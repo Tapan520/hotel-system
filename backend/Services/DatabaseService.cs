@@ -1425,6 +1425,49 @@ namespace HotelChannelManager.Services
                     new { OId = orderId, OldStatus = oldStatus, NewStatus = newStatus,
                           By = userId, Notes = notes ?? "" });
 
+                // ── Auto-deduct inventory when order reaches Delivered ──────────
+                if (newStatus == "Delivered")
+                {
+                    var orderItems = await db.QueryAsync<dynamic>(@"
+                        SELECT oi.CatalogId, oi.Quantity
+                        FROM   orderitems oi
+                        WHERE  oi.OrderId = @Id AND oi.CatalogId IS NOT NULL",
+                        new { Id = orderId });
+
+                    var shortageWarnings = new List<string>();
+
+                    foreach (var oi in orderItems)
+                    {
+                        int catalogId = (int)oi.CatalogId;
+                        int portions  = (int)Math.Max(1, Math.Round((double)oi.Quantity));
+
+                        var recipe = await db.QueryFirstOrDefaultAsync<dynamic>(
+                            "SELECT RecipeId, RecipeName FROM recipes WHERE CatalogId=@CId AND IsActive=1 LIMIT 1",
+                            new { CId = catalogId });
+
+                        if (recipe == null) continue;
+
+                        var orderHotelId = await db.ExecuteScalarAsync<int>(
+                            "SELECT HotelId FROM orders WHERE OrderId=@Id", new { Id = orderId });
+
+                        var deductReq = new DeductRecipeStockRequest
+                        {
+                            RecipeId = (int)recipe.RecipeId,
+                            Portions = portions,
+                            OrderId  = orderId,
+                            Notes    = $"Auto-deduct on Delivered — Order #{orderId}"
+                        };
+
+                        var (ok, msg) = await DeductRecipeStock(orderHotelId, userId, deductReq);
+                        if (!ok)
+                            shortageWarnings.Add($"{recipe.RecipeName}: {msg}");
+                    }
+
+                    if (shortageWarnings.Any())
+                        return $"WARNING: Order marked Delivered but inventory could not be fully deducted — " +
+                               string.Join("; ", shortageWarnings);
+                }
+
                 return $"SUCCESS: Order status updated to {newStatus}";
             }
             catch (Exception ex)
@@ -1706,6 +1749,556 @@ namespace HotelChannelManager.Services
                 LEFT JOIN rooms r ON r.RoomId    = b.RoomId
                 WHERE ci.BookingId = @BId",
                 new { BId = bookingId });
+        }
+
+        // ══════════════════════════════════════════════════════════════════════
+        // RECIPE-BASED INVENTORY MANAGEMENT SYSTEM (RIMS)
+        // ══════════════════════════════════════════════════════════════════════
+
+        // ── Inventory Items ───────────────────────────────────────────────────
+
+        public async Task<InventoryDashboardStats> GetInventoryDashboard(int hotelId)
+        {
+            using var db = GetDb();
+            var items = (await db.QueryAsync<InventoryItem>(
+                "SELECT * FROM inventoryitems WHERE HotelId=@HId AND IsActive=1",
+                new { HId = hotelId })).AsList();
+
+            var todayMovements = await db.ExecuteScalarAsync<int>(
+                "SELECT COUNT(*) FROM stockmovements WHERE HotelId=@HId AND DATE(CreatedAt)=CURDATE()",
+                new { HId = hotelId });
+
+            var totalRecipes = await db.ExecuteScalarAsync<int>(
+                "SELECT COUNT(*) FROM recipes WHERE HotelId=@HId AND IsActive=1",
+                new { HId = hotelId });
+
+            return new InventoryDashboardStats
+            {
+                TotalItems      = items.Count,
+                LowStockItems   = items.Count(i => i.IsLowStock && i.CurrentStock > 0),
+                OutOfStockItems = items.Count(i => i.CurrentStock <= 0),
+                TotalRecipes    = totalRecipes,
+                TotalStockValue = items.Sum(i => i.StockValue),
+                TodayMovements  = todayMovements,
+                LowStockList    = items.Where(i => i.IsLowStock).OrderBy(i => i.CurrentStock).Take(10).ToList()
+            };
+        }
+
+        public async Task<IEnumerable<InventoryItem>> GetInventoryItems(int hotelId, string? category, bool lowStockOnly)
+        {
+            using var db = GetDb();
+            var sql = "SELECT * FROM inventoryitems WHERE HotelId=@HId AND IsActive=1";
+            if (!string.IsNullOrEmpty(category)) sql += " AND Category=@Cat";
+            if (lowStockOnly) sql += " AND CurrentStock <= MinStockLevel";
+            sql += " ORDER BY Category, ItemName";
+            return await db.QueryAsync<InventoryItem>(sql, new { HId = hotelId, Cat = category });
+        }
+
+        public async Task<InventoryItem?> GetInventoryItemById(int itemId)
+        {
+            using var db = GetDb();
+            return await db.QueryFirstOrDefaultAsync<InventoryItem>(
+                "SELECT * FROM inventoryitems WHERE ItemId=@Id", new { Id = itemId });
+        }
+
+        public async Task<int> CreateInventoryItem(int hotelId, CreateInventoryItemRequest req)
+        {
+            using var db = GetDb();
+            return await db.ExecuteScalarAsync<int>(@"
+                INSERT INTO inventoryitems
+                    (HotelId,ItemName,Description,Category,Unit,CurrentStock,MinStockLevel,
+                     ReorderQty,CostPerUnit,Supplier,IsActive,CreatedAt,UpdatedAt)
+                VALUES
+                    (@HotelId,@ItemName,@Description,@Category,@Unit,@CurrentStock,@MinStockLevel,
+                     @ReorderQty,@CostPerUnit,@Supplier,1,NOW(),NOW());
+                SELECT LAST_INSERT_ID();",
+                new
+                {
+                    HotelId = hotelId, req.ItemName, req.Description, req.Category, req.Unit,
+                    req.CurrentStock, req.MinStockLevel, req.ReorderQty, req.CostPerUnit, req.Supplier
+                });
+        }
+
+        public async Task UpdateInventoryItem(int itemId, CreateInventoryItemRequest req)
+        {
+            using var db = GetDb();
+            await db.ExecuteAsync(@"
+                UPDATE inventoryitems SET
+                    ItemName=@ItemName, Description=@Description, Category=@Category,
+                    Unit=@Unit, MinStockLevel=@MinStockLevel, ReorderQty=@ReorderQty,
+                    CostPerUnit=@CostPerUnit, Supplier=@Supplier, UpdatedAt=NOW()
+                WHERE ItemId=@Id",
+                new
+                {
+                    Id = itemId, req.ItemName, req.Description, req.Category, req.Unit,
+                    req.MinStockLevel, req.ReorderQty, req.CostPerUnit, req.Supplier
+                });
+        }
+
+        public async Task DeactivateInventoryItem(int itemId)
+        {
+            using var db = GetDb();
+            await db.ExecuteAsync("UPDATE inventoryitems SET IsActive=0,UpdatedAt=NOW() WHERE ItemId=@Id",
+                new { Id = itemId });
+        }
+
+        // ── Stock Movements ───────────────────────────────────────────────────
+
+        public async Task<IEnumerable<StockMovement>> GetStockMovements(
+            int hotelId, int? itemId, string? movementType,
+            DateTime? from, DateTime? to, int page, int pageSize)
+        {
+            using var db = GetDb();
+            var sql = @"
+                SELECT sm.*, ii.ItemName, ii.Unit, u.FullName AS CreatedByName
+                FROM stockmovements sm
+                JOIN inventoryitems ii ON ii.ItemId = sm.ItemId
+                LEFT JOIN users u ON u.UserId = sm.CreatedBy
+                WHERE sm.HotelId=@HId";
+            if (itemId.HasValue)                     sql += " AND sm.ItemId=@IId";
+            if (!string.IsNullOrEmpty(movementType)) sql += " AND sm.MovementType=@MType";
+            if (from.HasValue)                       sql += " AND sm.CreatedAt>=@From";
+            if (to.HasValue)                         sql += " AND sm.CreatedAt<DATE_ADD(@To,INTERVAL 1 DAY)";
+            sql += $" ORDER BY sm.CreatedAt DESC LIMIT {pageSize} OFFSET {(page - 1) * pageSize}";
+            return await db.QueryAsync<StockMovement>(sql,
+                new { HId = hotelId, IId = itemId, MType = movementType, From = from, To = to });
+        }
+
+        public async Task<(int MovementId, string Message)> AddStockMovement(
+            int hotelId, int userId, StockMovementRequest req)
+        {
+            using var db = GetDb();
+            // For OUT / WASTE, verify we have enough stock
+            if (req.MovementType is "OUT" or "WASTE")
+            {
+                var current = await db.ExecuteScalarAsync<decimal>(
+                    "SELECT CurrentStock FROM inventoryitems WHERE ItemId=@Id", new { Id = req.ItemId });
+                if (current < req.Quantity)
+                    return (0, $"ERROR: Insufficient stock. Available: {current}, Requested: {req.Quantity}");
+            }
+
+            var costPer  = req.CostPerUnit;
+            var totalCost = costPer * req.Quantity;
+
+            // Insert movement
+            var movId = await db.ExecuteScalarAsync<int>(@"
+                INSERT INTO stockmovements
+                    (HotelId,ItemId,MovementType,Quantity,CostPerUnit,TotalCost,
+                     ReferenceType,ReferenceId,Notes,CreatedBy,CreatedAt)
+                VALUES
+                    (@HId,@IId,@MType,@Qty,@CostPer,@TotalCost,
+                     @RefType,@RefId,@Notes,@By,NOW());
+                SELECT LAST_INSERT_ID();",
+                new
+                {
+                    HId = hotelId, IId = req.ItemId, MType = req.MovementType,
+                    Qty = req.Quantity, CostPer = costPer, TotalCost = totalCost,
+                    RefType = req.ReferenceType, RefId = req.ReferenceId,
+                    Notes = req.Notes, By = userId
+                });
+
+            // Update current stock
+            var delta = req.MovementType == "IN" ? req.Quantity : -req.Quantity;
+            if (req.MovementType == "ADJUSTMENT")
+            {
+                // ADJUSTMENT sets stock to the quantity value directly
+                await db.ExecuteAsync(
+                    "UPDATE inventoryitems SET CurrentStock=@Qty,UpdatedAt=NOW() WHERE ItemId=@Id",
+                    new { Qty = req.Quantity, Id = req.ItemId });
+            }
+            else
+            {
+                await db.ExecuteAsync(
+                    "UPDATE inventoryitems SET CurrentStock=CurrentStock+@Delta,UpdatedAt=NOW() WHERE ItemId=@Id",
+                    new { Delta = delta, Id = req.ItemId });
+            }
+
+            return (movId, $"SUCCESS: Stock {req.MovementType} recorded");
+        }
+
+        // ── Recipes ───────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Shared helper — given a recipe ID and its ingredient lines (with current stock),
+        /// compute how many full portions can be made right now.
+        /// Returns (maxPortions, bottleneckIngredient).
+        /// </summary>
+        private static (int MaxPortions, string? Bottleneck) CalcMaxPortions(
+            IEnumerable<dynamic> ingredientLines)
+        {
+            int max = int.MaxValue;
+            string? bottleneck = null;
+            foreach (var ing in ingredientLines)
+            {
+                decimal reqPerYield = (decimal)ing.RequiredPerYield;
+                if (reqPerYield <= 0) continue;
+                int canMake = (int)Math.Floor((double)((decimal)ing.CurrentStock / reqPerYield));
+                if (canMake < max)
+                {
+                    max = canMake;
+                    bottleneck = (string)ing.ItemName;
+                }
+            }
+            return (max == int.MaxValue ? 0 : max, bottleneck);
+        }
+
+        public async Task<IEnumerable<Recipe>> GetRecipes(int hotelId, string? category)
+        {
+            using var db = GetDb();
+            var sql = @"
+                SELECT r.*, oc.ItemName AS CatalogItemName,
+                       COALESCE((
+                           SELECT SUM(ri.Quantity * ii.CostPerUnit)
+                           FROM recipeingredients ri
+                           JOIN inventoryitems ii ON ii.ItemId = ri.ItemId
+                           WHERE ri.RecipeId = r.RecipeId
+                       ),0) AS IngredientCost
+                FROM recipes r
+                LEFT JOIN ordercatalog oc ON oc.CatalogId = r.CatalogId
+                WHERE r.HotelId=@HId AND r.IsActive=1";
+            if (!string.IsNullOrEmpty(category)) sql += " AND r.Category=@Cat";
+            sql += " ORDER BY r.Category, r.RecipeName";
+            var recipes = (await db.QueryAsync<Recipe>(sql, new { HId = hotelId, Cat = category })).AsList();
+
+            if (recipes.Any())
+            {
+                var ids = recipes.Select(r => r.RecipeId).ToList();
+
+                // Load ingredients WITH current stock for MaxPortions calculation
+                var allIngredients = (await db.QueryAsync<dynamic>(@"
+                    SELECT ri.RecipeId, ri.ItemId, ri.Quantity AS RequiredPerYield,
+                           ii.ItemName, ii.Unit, ii.CostPerUnit, ii.CurrentStock
+                    FROM recipeingredients ri
+                    JOIN inventoryitems ii ON ii.ItemId = ri.ItemId
+                    WHERE ri.RecipeId IN @Ids",
+                    new { Ids = ids })).AsList();
+
+                foreach (var recipe in recipes)
+                {
+                    var lines = allIngredients.Where(i => (int)i.RecipeId == recipe.RecipeId).ToList();
+
+                    // Typed ingredient list for the UI
+                    recipe.Ingredients = lines.Select(i => new RecipeIngredient
+                    {
+                        RecipeId    = (int)i.RecipeId,
+                        ItemId      = (int)i.ItemId,
+                        Quantity    = (decimal)i.RequiredPerYield,
+                        ItemName    = (string)i.ItemName,
+                        Unit        = (string)i.Unit,
+                        CostPerUnit = (decimal)i.CostPerUnit
+                    }).ToList();
+
+                    // Compute max portions
+                    var (maxP, bottleneck) = CalcMaxPortions(lines);
+                    recipe.MaxPortions          = maxP;
+                    recipe.BottleneckIngredient = bottleneck;
+                    recipe.HasStockShortage     = maxP == 0;
+                }
+            }
+            return recipes;
+        }
+
+        public async Task<Recipe?> GetRecipeById(int recipeId)
+        {
+            using var db = GetDb();
+            var recipe = await db.QueryFirstOrDefaultAsync<Recipe>(@"
+                SELECT r.*, oc.ItemName AS CatalogItemName,
+                       COALESCE((
+                           SELECT SUM(ri.Quantity * ii.CostPerUnit)
+                           FROM recipeingredients ri
+                           JOIN inventoryitems ii ON ii.ItemId = ri.ItemId
+                           WHERE ri.RecipeId = r.RecipeId
+                       ),0) AS IngredientCost
+                FROM recipes r
+                LEFT JOIN ordercatalog oc ON oc.CatalogId = r.CatalogId
+                WHERE r.RecipeId=@Id",
+                new { Id = recipeId });
+
+            if (recipe != null)
+            {
+                var lines = (await db.QueryAsync<dynamic>(@"
+                    SELECT ri.RecipeId, ri.ItemId, ri.Quantity AS RequiredPerYield,
+                           ii.ItemName, ii.Unit, ii.CostPerUnit, ii.CurrentStock
+                    FROM recipeingredients ri
+                    JOIN inventoryitems ii ON ii.ItemId = ri.ItemId
+                    WHERE ri.RecipeId=@Id",
+                    new { Id = recipeId })).AsList();
+
+                recipe.Ingredients = lines.Select(i => new RecipeIngredient
+                {
+                    RecipeId    = (int)i.RecipeId,
+                    ItemId      = (int)i.ItemId,
+                    Quantity    = (decimal)i.RequiredPerYield,
+                    ItemName    = (string)i.ItemName,
+                    Unit        = (string)i.Unit,
+                    CostPerUnit = (decimal)i.CostPerUnit
+                }).ToList();
+
+                var (maxP, bottleneck) = CalcMaxPortions(lines);
+                recipe.MaxPortions          = maxP;
+                recipe.BottleneckIngredient = bottleneck;
+                recipe.HasStockShortage     = maxP == 0;
+            }
+            return recipe;
+        }
+
+        public async Task<int> CreateRecipe(int hotelId, CreateRecipeRequest req)
+        {
+            using var db = GetDb();
+
+            // ── 1. Auto-create a matching ordercatalog entry ──────────────────
+            var catalogId = await db.ExecuteScalarAsync<int>(@"
+                INSERT INTO ordercatalog
+                    (HotelId,Category,ItemName,Description,UnitPrice,Unit,TaxPercent,IsAvailable,SortOrder)
+                VALUES
+                    (@HotelId,@Category,@ItemName,@Description,@UnitPrice,@Unit,@TaxPercent,1,0);
+                SELECT LAST_INSERT_ID();",
+                new
+                {
+                    HotelId     = hotelId,
+                    Category    = req.Category,
+                    ItemName    = req.RecipeName,
+                    Description = req.Description,
+                    UnitPrice   = req.SellingPrice,
+                    Unit        = req.Unit,
+                    TaxPercent  = req.TaxPercent
+                });
+
+            // ── 2. Insert the recipe row linked to the catalog entry ──────────
+            var recipeId = await db.ExecuteScalarAsync<int>(@"
+                INSERT INTO recipes
+                    (HotelId,CatalogId,RecipeName,Description,Category,Yield,
+                     SellingPrice,Unit,TaxPercent,Instructions,IsActive,CreatedAt,UpdatedAt)
+                VALUES
+                    (@HotelId,@CatalogId,@RecipeName,@Description,@Category,@Yield,
+                     @SellingPrice,@Unit,@TaxPercent,@Instructions,1,NOW(),NOW());
+                SELECT LAST_INSERT_ID();",
+                new
+                {
+                    HotelId      = hotelId,
+                    CatalogId    = catalogId,
+                    req.RecipeName, req.Description,
+                    req.Category,   req.Yield,
+                    req.SellingPrice, req.Unit, req.TaxPercent,
+                    req.Instructions
+                });
+
+            // ── 3. Insert ingredients ─────────────────────────────────────────
+            foreach (var ing in req.Ingredients)
+            {
+                await db.ExecuteAsync(@"
+                    INSERT INTO recipeingredients(RecipeId,ItemId,Quantity,Notes)
+                    VALUES(@RecipeId,@ItemId,@Quantity,@Notes)",
+                    new { RecipeId = recipeId, ing.ItemId, ing.Quantity, ing.Notes });
+            }
+            return recipeId;
+        }
+
+        public async Task UpdateRecipe(int recipeId, CreateRecipeRequest req)
+        {
+            using var db = GetDb();
+
+            // Get current recipe to find its catalogId
+            var existing = await db.QueryFirstOrDefaultAsync<dynamic>(
+                "SELECT CatalogId, HotelId FROM recipes WHERE RecipeId=@Id", new { Id = recipeId });
+
+            int? catalogId = existing?.CatalogId;
+            int  hotelId   = (int)(existing?.HotelId ?? 1);
+
+            if (catalogId.HasValue)
+            {
+                // ── Sync ordercatalog entry ────────────────────────────────────
+                await db.ExecuteAsync(@"
+                    UPDATE ordercatalog SET
+                        Category=@Category, ItemName=@ItemName, Description=@Description,
+                        UnitPrice=@UnitPrice, Unit=@Unit, TaxPercent=@TaxPercent
+                    WHERE CatalogId=@CatalogId",
+                    new
+                    {
+                        CatalogId   = catalogId.Value,
+                        Category    = req.Category,
+                        ItemName    = req.RecipeName,
+                        Description = req.Description,
+                        UnitPrice   = req.SellingPrice,
+                        Unit        = req.Unit,
+                        TaxPercent  = req.TaxPercent
+                    });
+            }
+            else
+            {
+                // Recipe had no catalog entry yet — create one now
+                catalogId = await db.ExecuteScalarAsync<int>(@"
+                    INSERT INTO ordercatalog
+                        (HotelId,Category,ItemName,Description,UnitPrice,Unit,TaxPercent,IsAvailable,SortOrder)
+                    VALUES
+                        (@HotelId,@Category,@ItemName,@Description,@UnitPrice,@Unit,@TaxPercent,1,0);
+                    SELECT LAST_INSERT_ID();",
+                    new
+                    {
+                        HotelId     = hotelId,
+                        Category    = req.Category,
+                        ItemName    = req.RecipeName,
+                        Description = req.Description,
+                        UnitPrice   = req.SellingPrice,
+                        Unit        = req.Unit,
+                        TaxPercent  = req.TaxPercent
+                    });
+            }
+
+            // ── Update recipe row ──────────────────────────────────────────────
+            await db.ExecuteAsync(@"
+                UPDATE recipes SET
+                    CatalogId=@CatalogId, RecipeName=@RecipeName, Description=@Description,
+                    Category=@Category, Yield=@Yield, SellingPrice=@SellingPrice,
+                    Unit=@Unit, TaxPercent=@TaxPercent,
+                    Instructions=@Instructions, UpdatedAt=NOW()
+                WHERE RecipeId=@Id",
+                new
+                {
+                    Id = recipeId, CatalogId = catalogId,
+                    req.RecipeName, req.Description,
+                    req.Category,   req.Yield,
+                    req.SellingPrice, req.Unit, req.TaxPercent,
+                    req.Instructions
+                });
+
+            // ── Replace ingredients ───────────────────────────────────────────
+            await db.ExecuteAsync("DELETE FROM recipeingredients WHERE RecipeId=@Id", new { Id = recipeId });
+            foreach (var ing in req.Ingredients)
+            {
+                await db.ExecuteAsync(@"
+                    INSERT INTO recipeingredients(RecipeId,ItemId,Quantity,Notes)
+                    VALUES(@RecipeId,@ItemId,@Quantity,@Notes)",
+                    new { RecipeId = recipeId, ing.ItemId, ing.Quantity, ing.Notes });
+            }
+        }
+
+        public async Task DeactivateRecipe(int recipeId)
+        {
+            using var db = GetDb();
+            // Also hide from ordercatalog so it stops appearing in order picker
+            var catalogId = await db.ExecuteScalarAsync<int?>(
+                "SELECT CatalogId FROM recipes WHERE RecipeId=@Id", new { Id = recipeId });
+            if (catalogId.HasValue)
+                await db.ExecuteAsync("UPDATE ordercatalog SET IsAvailable=0 WHERE CatalogId=@CId",
+                    new { CId = catalogId.Value });
+            await db.ExecuteAsync("UPDATE recipes SET IsActive=0,UpdatedAt=NOW() WHERE RecipeId=@Id",
+                new { Id = recipeId });
+        }
+
+        /// <summary>Check if stock is sufficient for N portions — returns full per-ingredient breakdown
+        /// including MaxPortionsPossible so the UI can show "you can make X more".</summary>
+        public async Task<RecipeStockCheckResult> CheckRecipeStock(int recipeId, int portions)
+        {
+            using var db = GetDb();
+
+            var recipeName = await db.ExecuteScalarAsync<string>(
+                "SELECT RecipeName FROM recipes WHERE RecipeId=@Id", new { Id = recipeId }) ?? "";
+
+            var rawLines = (await db.QueryAsync<dynamic>(@"
+                SELECT ri.ItemId, ri.Quantity AS RequiredPerYield, ii.ItemName, ii.Unit,
+                       ii.CurrentStock,
+                       ri.Quantity * @P AS RequiredTotal
+                FROM recipeingredients ri
+                JOIN inventoryitems ii ON ii.ItemId = ri.ItemId
+                WHERE ri.RecipeId=@Id",
+                new { Id = recipeId, P = portions })).AsList();
+
+            var lines = rawLines.Select(l =>
+            {
+                decimal reqPerYield  = (decimal)l.RequiredPerYield;
+                decimal currentStock = (decimal)l.CurrentStock;
+                decimal reqTotal     = (decimal)l.RequiredTotal;
+                int     maxFromThis  = reqPerYield > 0
+                    ? (int)Math.Floor((double)(currentStock / reqPerYield))
+                    : int.MaxValue;
+                return new RecipeStockLine
+                {
+                    ItemId            = (int)l.ItemId,
+                    ItemName          = (string)l.ItemName,
+                    Unit              = (string)l.Unit,
+                    RequiredPerYield  = reqPerYield,
+                    RequiredTotal     = reqTotal,
+                    CurrentStock      = currentStock,
+                    HasStock          = currentStock >= reqTotal,
+                    MaxPortionsFromThis = maxFromThis == int.MaxValue ? 9999 : maxFromThis
+                };
+            }).ToList();
+
+            int maxPossible = lines.Count > 0
+                ? lines.Min(l => l.MaxPortionsFromThis)
+                : 0;
+            bool canMake   = lines.All(l => l.HasStock);
+            string? bottleneck = lines.Count > 0
+                ? lines.OrderBy(l => l.MaxPortionsFromThis).First().ItemName
+                : null;
+
+            return new RecipeStockCheckResult
+            {
+                RecipeId             = recipeId,
+                RecipeName           = recipeName,
+                RequestedPortions    = portions,
+                CanMake              = canMake,
+                MaxPortionsPossible  = maxPossible,
+                BottleneckIngredient = bottleneck,
+                Lines                = lines
+            };
+        }
+
+        /// <summary>Deduct inventory for N portions of a recipe (called on order Delivered).</summary>
+        public async Task<(bool Ok, string Message)> DeductRecipeStock(
+            int hotelId, int userId, DeductRecipeStockRequest req)
+        {
+            using var db = GetDb();
+
+            var recipe = await db.QueryFirstOrDefaultAsync<Recipe>(
+                "SELECT * FROM recipes WHERE RecipeId=@Id AND IsActive=1", new { Id = req.RecipeId });
+            if (recipe == null) return (false, "Recipe not found");
+
+            var ingredients = (await db.QueryAsync<dynamic>(@"
+                SELECT ri.ItemId, ri.Quantity * @P AS TotalQty, ii.ItemName, ii.Unit,
+                       ii.CurrentStock, ii.CostPerUnit
+                FROM recipeingredients ri
+                JOIN inventoryitems ii ON ii.ItemId = ri.ItemId
+                WHERE ri.RecipeId=@Id",
+                new { Id = req.RecipeId, P = req.Portions })).AsList();
+
+            // Validate stock for all ingredients first
+            foreach (var ing in ingredients)
+            {
+                if ((decimal)ing.CurrentStock < (decimal)ing.TotalQty)
+                    return (false,
+                        $"Insufficient stock for '{ing.ItemName}'. " +
+                        $"Available: {ing.CurrentStock} {ing.Unit}, Required: {ing.TotalQty} {ing.Unit}");
+            }
+
+            // Deduct each ingredient
+            foreach (var ing in ingredients)
+            {
+                await db.ExecuteAsync(@"
+                    INSERT INTO stockmovements
+                        (HotelId,ItemId,MovementType,Quantity,CostPerUnit,TotalCost,
+                         ReferenceType,ReferenceId,Notes,CreatedBy,CreatedAt)
+                    VALUES
+                        (@HId,@IId,'OUT',@Qty,@CostPer,@Total,
+                         'Order',@RefId,@Notes,@By,NOW())",
+                    new
+                    {
+                        HId = hotelId, IId = (int)ing.ItemId,
+                        Qty = (decimal)ing.TotalQty,
+                        CostPer = (decimal)ing.CostPerUnit,
+                        Total = (decimal)ing.TotalQty * (decimal)ing.CostPerUnit,
+                        RefId = req.OrderId,
+                        Notes = req.Notes ?? $"Recipe: {recipe.RecipeName} x{req.Portions}",
+                        By = userId
+                    });
+
+                await db.ExecuteAsync(
+                    "UPDATE inventoryitems SET CurrentStock=CurrentStock-@Qty,UpdatedAt=NOW() WHERE ItemId=@Id",
+                    new { Qty = (decimal)ing.TotalQty, Id = (int)ing.ItemId });
+            }
+
+            return (true, $"Stock deducted for {recipe.RecipeName} x{req.Portions} portion(s)");
         }
     }
 }
