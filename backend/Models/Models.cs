@@ -514,4 +514,129 @@ namespace HotelChannelManager.Models
         public decimal TotalRevenue { get; set; }
         public decimal UnbilledAmount { get; set; }
     }
+
+    // ── RECIPE-BASED INVENTORY MANAGEMENT SYSTEM (RIMS) ──────────────────────
+
+    /// <summary>Master inventory item (ingredient / supply).</summary>
+    public class InventoryItem
+    {
+        public int ItemId { get; set; }
+        public int HotelId { get; set; }
+        public string ItemName { get; set; } = "";
+        public string? Description { get; set; }
+        public string Category { get; set; } = "Ingredient"; // Ingredient|Beverage|Packaging|Cleaning|Other
+        public string Unit { get; set; } = "kg";             // kg|g|L|ml|pcs|dozen|box
+        public decimal CurrentStock { get; set; }
+        public decimal MinStockLevel { get; set; }           // low-stock threshold
+        public decimal ReorderQty { get; set; }
+        public decimal CostPerUnit { get; set; }
+        public string? Supplier { get; set; }
+        public bool IsActive { get; set; } = true;
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
+        // Computed
+        public bool IsLowStock => CurrentStock <= MinStockLevel;
+        public decimal StockValue => CurrentStock * CostPerUnit;
+    }
+
+    /// <summary>Recipe header linked to an OrderCatalog item.</summary>
+    public class Recipe
+    {
+        public int RecipeId { get; set; }
+        public int HotelId { get; set; }
+        public int? CatalogId { get; set; }          // links to ordercatalog (auto-managed)
+        public string RecipeName { get; set; } = "";
+        public string? Description { get; set; }
+        public string Category { get; set; } = "";   // mirrors ordercatalog.Category
+        public int Yield { get; set; } = 1;          // how many portions this recipe makes
+        public string? Instructions { get; set; }
+        // Selling price — synced to ordercatalog automatically
+        public decimal SellingPrice { get; set; }
+        public string Unit { get; set; } = "per portion";
+        public decimal TaxPercent { get; set; }
+        public bool IsActive { get; set; } = true;
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
+        // Joined
+        public string? CatalogItemName { get; set; }
+        public decimal IngredientCost { get; set; }  // computed from ingredients
+        // ── Stock intelligence (computed by GetRecipes) ───────────────────────
+        public int MaxPortions { get; set; }         // max portions makeable right now
+        public bool HasStockShortage { get; set; }   // any ingredient below required level
+        public string? BottleneckIngredient { get; set; } // ingredient limiting portions
+        public List<RecipeIngredient> Ingredients { get; set; } = new();
+    }
+
+    /// <summary>Per-ingredient stock line returned by stock-check endpoint.</summary>
+    public class RecipeStockLine
+    {
+        public int ItemId { get; set; }
+        public string ItemName { get; set; } = "";
+        public string Unit { get; set; } = "";
+        public decimal RequiredPerYield { get; set; }
+        public decimal RequiredTotal { get; set; }
+        public decimal CurrentStock { get; set; }
+        public bool HasStock { get; set; }
+        public int MaxPortionsFromThis { get; set; } // floor(CurrentStock / RequiredPerYield)
+    }
+
+    /// <summary>Full stock-check result for a recipe.</summary>
+    public class RecipeStockCheckResult
+    {
+        public int RecipeId { get; set; }
+        public string RecipeName { get; set; } = "";
+        public int RequestedPortions { get; set; }
+        public bool CanMake { get; set; }
+        public int MaxPortionsPossible { get; set; }  // min across all ingredients
+        public string? BottleneckIngredient { get; set; }
+        public List<RecipeStockLine> Lines { get; set; } = new();
+    }
+
+    /// <summary>One ingredient line inside a recipe.</summary>
+    public class RecipeIngredient
+    {
+        public int LineId { get; set; }
+        public int RecipeId { get; set; }
+        public int ItemId { get; set; }
+        public decimal Quantity { get; set; }        // quantity per recipe yield
+        public string? Notes { get; set; }
+        // Joined
+        public string? ItemName { get; set; }
+        public string? Unit { get; set; }
+        public decimal CostPerUnit { get; set; }
+        public decimal LineCost => Quantity * CostPerUnit;
+    }
+
+    /// <summary>Stock movement log (IN / OUT / ADJUSTMENT / WASTE).</summary>
+    public class StockMovement
+    {
+        public int MovementId { get; set; }
+        public int HotelId { get; set; }
+        public int ItemId { get; set; }
+        public string MovementType { get; set; } = "IN"; // IN|OUT|ADJUSTMENT|WASTE
+        public decimal Quantity { get; set; }
+        public decimal CostPerUnit { get; set; }
+        public decimal TotalCost { get; set; }
+        public string? ReferenceType { get; set; }   // Order|Manual|Adjustment|Wastage
+        public int? ReferenceId { get; set; }        // OrderId when auto-deducted
+        public string? Notes { get; set; }
+        public int? CreatedBy { get; set; }
+        public DateTime CreatedAt { get; set; }
+        // Joined
+        public string? ItemName { get; set; }
+        public string? Unit { get; set; }
+        public string? CreatedByName { get; set; }
+    }
+
+    /// <summary>Aggregated inventory dashboard stats.</summary>
+    public class InventoryDashboardStats
+    {
+        public int TotalItems { get; set; }
+        public int LowStockItems { get; set; }
+        public int OutOfStockItems { get; set; }
+        public int TotalRecipes { get; set; }
+        public decimal TotalStockValue { get; set; }
+        public int TodayMovements { get; set; }
+        public List<InventoryItem> LowStockList { get; set; } = new();
+    }
 }
