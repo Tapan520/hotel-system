@@ -284,6 +284,61 @@ namespace HotelChannelManager.DTOs
         public string? Reason { get; set; }
     }
 
+    // ── RECIPE-BASED IMS DTOs ────────────────────────────────────────────────
+
+    public class CreateInventoryItemRequest
+    {
+        [Required] public string ItemName { get; set; } = "";
+        public string? Description { get; set; }
+        [Required] public string Category { get; set; } = "Ingredient";
+        [Required] public string Unit { get; set; } = "kg";
+        [Range(0, 999999)] public decimal CurrentStock { get; set; }
+        [Range(0, 999999)] public decimal MinStockLevel { get; set; }
+        [Range(0, 999999)] public decimal ReorderQty { get; set; }
+        [Range(0, 9999999)] public decimal CostPerUnit { get; set; }
+        public string? Supplier { get; set; }
+    }
+
+    public class CreateRecipeRequest
+    {
+        [Required] public string RecipeName { get; set; } = "";
+        public string? Description { get; set; }
+        [Required] public string Category { get; set; } = "";
+        [Range(1, 9999)] public int Yield { get; set; } = 1;
+        public string? Instructions { get; set; }
+        // Selling price — used to auto-create/update the linked ordercatalog entry
+        [Required, Range(0, 9999999)] public decimal SellingPrice { get; set; }
+        public string Unit { get; set; } = "per portion";
+        [Range(0, 100)] public decimal TaxPercent { get; set; }
+        [Required, MinLength(1)] public List<RecipeIngredientRequest> Ingredients { get; set; } = new();
+    }
+
+    public class RecipeIngredientRequest
+    {
+        [Required] public int ItemId { get; set; }
+        [Required, Range(0.001, 99999)] public decimal Quantity { get; set; }
+        public string? Notes { get; set; }
+    }
+
+    public class StockMovementRequest
+    {
+        [Required] public int ItemId { get; set; }
+        [Required] public string MovementType { get; set; } = "IN"; // IN|OUT|ADJUSTMENT|WASTE
+        [Required, Range(0.001, 999999)] public decimal Quantity { get; set; }
+        [Range(0, 9999999)] public decimal CostPerUnit { get; set; }
+        public string? ReferenceType { get; set; }
+        public int? ReferenceId { get; set; }
+        public string? Notes { get; set; }
+    }
+
+    public class DeductRecipeStockRequest
+    {
+        [Required] public int RecipeId { get; set; }
+        [Range(1, 9999)] public int Portions { get; set; } = 1;
+        public int? OrderId { get; set; }
+        public string? Notes { get; set; }
+    }
+
     // ── CUSTOMER PORTAL AUTH ────────────────────────────────────────────────
     public class CustomerLoginRequest
     {
