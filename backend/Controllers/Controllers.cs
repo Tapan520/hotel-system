@@ -1051,7 +1051,12 @@ namespace HotelChannelManager.Controllers
             if (msg.StartsWith("ERROR"))
                 return BadRequest(ApiResponse<string>.Fail(msg.Replace("ERROR: ", "")));
             await _db.LogAudit(UserId, $"ORDER_STATUS_{req.Status.ToUpper()}", "Orders", id.ToString());
-            return Ok(ApiResponse<string>.Ok(msg.Replace("SUCCESS: ", "")));
+            // WARNING = status updated but inventory deduction had a shortage — surface to frontend
+            bool hasWarning = msg.StartsWith("WARNING");
+            string cleanMsg = msg.Replace("SUCCESS: ", "").Replace("WARNING: ", "");
+            // Prefix message with INVENTORY_WARNING so frontend can detect and show an alert
+            string responseMsg = hasWarning ? $"INVENTORY_WARNING: {cleanMsg}" : cleanMsg;
+            return Ok(ApiResponse<string>.Ok(responseMsg));
         }
 
         [HttpPost("{id}/bill")]
@@ -1187,6 +1192,175 @@ namespace HotelChannelManager.Controllers
             await _db.LogAudit(UserId, "GENERATE_INVOICE", "CheckoutInvoices", invoiceId.ToString());
             return Ok(ApiResponse<object>.Ok(new { invoiceId },
                 msg.Replace("SUCCESS: ", "").Replace("INFO: ", "")));
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // RECIPE-BASED INVENTORY MANAGEMENT SYSTEM (RIMS)
+    // ══════════════════════════════════════════════════════════════════════════
+
+    // ── /api/inventory ────────────────────────────────────────────────────────
+    [ApiController]
+    [Route("api/inventory")]
+    [Authorize]
+    public class InventoryController : ControllerBase
+    {
+        private readonly DatabaseService _db;
+        private int HotelId => int.TryParse(User.FindFirst("HotelId")?.Value, out var h) ? h : 1;
+        private int UserId  => int.TryParse(User.FindFirst("UserId")?.Value,  out var u) ? u : 0;
+
+        public InventoryController(DatabaseService db) => _db = db;
+
+        // ── Dashboard ────────────────────────────────────────────────────────
+        [HttpGet("dashboard")]
+        public async Task<IActionResult> GetDashboard()
+        {
+            var stats = await _db.GetInventoryDashboard(HotelId);
+            return Ok(ApiResponse<InventoryDashboardStats>.Ok(stats));
+        }
+
+        // ── Inventory Items ──────────────────────────────────────────────────
+        [HttpGet("items")]
+        public async Task<IActionResult> GetItems([FromQuery] string? category, [FromQuery] bool lowStockOnly = false)
+        {
+            var items = await _db.GetInventoryItems(HotelId, category, lowStockOnly);
+            return Ok(ApiResponse<IEnumerable<InventoryItem>>.Ok(items));
+        }
+
+        [HttpGet("items/{id}")]
+        public async Task<IActionResult> GetItem(int id)
+        {
+            var item = await _db.GetInventoryItemById(id);
+            if (item == null) return NotFound(ApiResponse<string>.Fail("Item not found"));
+            return Ok(ApiResponse<InventoryItem>.Ok(item));
+        }
+
+        [HttpPost("items")]
+        [Authorize(Roles = "SuperAdmin,HotelAdmin")]
+        public async Task<IActionResult> CreateItem([FromBody] CreateInventoryItemRequest req)
+        {
+            var id = await _db.CreateInventoryItem(HotelId, req);
+            await _db.LogAudit(UserId, "CREATE_INV_ITEM", "InventoryItems", id.ToString());
+            return Ok(ApiResponse<int>.Ok(id, "Inventory item created"));
+        }
+
+        [HttpPut("items/{id}")]
+        [Authorize(Roles = "SuperAdmin,HotelAdmin")]
+        public async Task<IActionResult> UpdateItem(int id, [FromBody] CreateInventoryItemRequest req)
+        {
+            await _db.UpdateInventoryItem(id, req);
+            await _db.LogAudit(UserId, "UPDATE_INV_ITEM", "InventoryItems", id.ToString());
+            return Ok(ApiResponse<string>.Ok("Item updated"));
+        }
+
+        [HttpDelete("items/{id}")]
+        [Authorize(Roles = "SuperAdmin,HotelAdmin")]
+        public async Task<IActionResult> DeleteItem(int id)
+        {
+            await _db.DeactivateInventoryItem(id);
+            await _db.LogAudit(UserId, "DELETE_INV_ITEM", "InventoryItems", id.ToString());
+            return Ok(ApiResponse<string>.Ok("Item deactivated"));
+        }
+
+        // ── Stock Movements ──────────────────────────────────────────────────
+        [HttpGet("movements")]
+        public async Task<IActionResult> GetMovements(
+            [FromQuery] int? itemId,
+            [FromQuery] string? movementType,
+            [FromQuery] DateTime? from,
+            [FromQuery] DateTime? to,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 50)
+        {
+            var rows = await _db.GetStockMovements(HotelId, itemId, movementType, from, to, page, pageSize);
+            return Ok(ApiResponse<IEnumerable<StockMovement>>.Ok(rows));
+        }
+
+        [HttpPost("movements")]
+        public async Task<IActionResult> AddMovement([FromBody] StockMovementRequest req)
+        {
+            var (movId, msg) = await _db.AddStockMovement(HotelId, UserId, req);
+            if (msg.StartsWith("ERROR")) return BadRequest(ApiResponse<string>.Fail(msg.Replace("ERROR: ", "")));
+            await _db.LogAudit(UserId, $"STOCK_{req.MovementType}", "StockMovements", movId.ToString(),
+                $"Item:{req.ItemId} Qty:{req.Quantity}");
+            return Ok(ApiResponse<int>.Ok(movId, msg.Replace("SUCCESS: ", "")));
+        }
+    }
+
+    // ── /api/recipes ──────────────────────────────────────────────────────────
+    [ApiController]
+    [Route("api/recipes")]
+    [Authorize]
+    public class RecipesController : ControllerBase
+    {
+        private readonly DatabaseService _db;
+        private int HotelId => int.TryParse(User.FindFirst("HotelId")?.Value, out var h) ? h : 1;
+        private int UserId  => int.TryParse(User.FindFirst("UserId")?.Value,  out var u) ? u : 0;
+
+        public RecipesController(DatabaseService db) => _db = db;
+
+        [HttpGet]
+        public async Task<IActionResult> GetRecipes([FromQuery] string? category)
+        {
+            var recipes = await _db.GetRecipes(HotelId, category);
+            return Ok(ApiResponse<IEnumerable<Recipe>>.Ok(recipes));
+        }
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetRecipe(int id)
+        {
+            var recipe = await _db.GetRecipeById(id);
+            if (recipe == null) return NotFound(ApiResponse<string>.Fail("Recipe not found"));
+            return Ok(ApiResponse<Recipe>.Ok(recipe));
+        }
+
+        [HttpPost]
+        [Authorize(Roles = "SuperAdmin,HotelAdmin")]
+        public async Task<IActionResult> CreateRecipe([FromBody] CreateRecipeRequest req)
+        {
+            var id = await _db.CreateRecipe(HotelId, req);
+            await _db.LogAudit(UserId, "CREATE_RECIPE", "Recipes", id.ToString());
+            return Ok(ApiResponse<int>.Ok(id, "Recipe created"));
+        }
+
+        [HttpPut("{id}")]
+        [Authorize(Roles = "SuperAdmin,HotelAdmin")]
+        public async Task<IActionResult> UpdateRecipe(int id, [FromBody] CreateRecipeRequest req)
+        {
+            await _db.UpdateRecipe(id, req);
+            await _db.LogAudit(UserId, "UPDATE_RECIPE", "Recipes", id.ToString());
+            return Ok(ApiResponse<string>.Ok("Recipe updated"));
+        }
+
+        [HttpDelete("{id}")]
+        [Authorize(Roles = "SuperAdmin,HotelAdmin")]
+        public async Task<IActionResult> DeleteRecipe(int id)
+        {
+            await _db.DeactivateRecipe(id);
+            await _db.LogAudit(UserId, "DELETE_RECIPE", "Recipes", id.ToString());
+            return Ok(ApiResponse<string>.Ok("Recipe deactivated"));
+        }
+
+        /// <summary>
+        /// Deduct ingredients from stock for N portions of a recipe.
+        /// Called automatically when an order is marked Delivered, or manually.
+        /// </summary>
+        [HttpPost("deduct-stock")]
+        public async Task<IActionResult> DeductStock([FromBody] DeductRecipeStockRequest req)
+        {
+            var (ok, msg) = await _db.DeductRecipeStock(HotelId, UserId, req);
+            if (!ok) return BadRequest(ApiResponse<string>.Fail(msg));
+            await _db.LogAudit(UserId, "RECIPE_DEDUCT", "Recipes", req.RecipeId.ToString(),
+                $"Portions:{req.Portions} Order:{req.OrderId}");
+            return Ok(ApiResponse<string>.Ok(msg));
+        }
+
+        /// <summary>Check stock for N portions — returns MaxPortionsPossible so UI can show "you can make X more".</summary>
+        [HttpGet("{id}/stock-check")]
+        public async Task<IActionResult> StockCheck(int id, [FromQuery] int portions = 1)
+        {
+            var result = await _db.CheckRecipeStock(id, portions);
+            return Ok(ApiResponse<RecipeStockCheckResult>.Ok(result));
         }
     }
 }
