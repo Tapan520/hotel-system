@@ -604,6 +604,7 @@ namespace HotelChannelManager.Models
         public string? ItemName { get; set; }
         public string? Unit { get; set; }
         public decimal CostPerUnit { get; set; }
+        public decimal CurrentStock { get; set; }   // ← ADDED THIS
         public decimal LineCost => Quantity * CostPerUnit;
     }
 
