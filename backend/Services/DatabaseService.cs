@@ -1985,7 +1985,8 @@ namespace HotelChannelManager.Services
                         Quantity    = (decimal)i.RequiredPerYield,
                         ItemName    = (string)i.ItemName,
                         Unit        = (string)i.Unit,
-                        CostPerUnit = (decimal)i.CostPerUnit
+                        CostPerUnit = (decimal)i.CostPerUnit,
+                        CurrentStock = (decimal)i.CurrentStock   // ← ADD THIS
                     }).ToList();
 
                     // Compute max portions
