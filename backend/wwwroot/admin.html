@@ -2950,7 +2950,10 @@ async function loadFolio(){
   </table></div>
 
   ${invoice?`<div style="background:linear-gradient(135deg,var(--p) 0%,var(--p2) 100%);color:#fff;border-radius:8px;padding:1.2rem;margin-bottom:1rem">
-    <div style="font-size:1rem;font-weight:700;margin-bottom:.8rem">🧾 Invoice ${invoice.invoiceNumber}</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.8rem">
+		  <div style="font-size:1rem;font-weight:700">🧾 Invoice ${invoice.invoiceNumber}</div>
+		  <button class="btn btn-sm" style="background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.4)" onclick="printInvoice(${bookingId})">🖨️ Print Invoice</button>
+	</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.8rem">
       <div><div style="font-size:.68rem;opacity:.7;text-transform:uppercase">Room Charges</div><div style="font-size:1rem;font-weight:700">${fmtMoney(invoice.roomCharges)}</div></div>
       <div><div style="font-size:.68rem;opacity:.7;text-transform:uppercase">Service Charges</div><div style="font-size:1rem;font-weight:700">${fmtMoney(invoice.serviceCharges)}</div></div>
@@ -3011,6 +3014,166 @@ async function generateInvoice(bookingId){
   if(d?.success){alert('✅ Invoice generated');loadFolio();}
   else alert(d?.message||'Failed to generate invoice');
 }
+
+
+async function printInvoice(bookingId) {
+  const [folioRes, bkRes] = await Promise.all([
+    api('GET', `/orders/folio/${bookingId}`),
+    api('GET', `/bookings/${bookingId}`)
+  ]);
+  const invoice = folioRes?.data?.invoice;
+  const entries = Array.isArray(folioRes?.data?.entries) ? folioRes.data.entries : [];
+  const b       = bkRes?.data || {};
+  if (!invoice) { alert('No invoice found for this booking.'); return; }
+
+  const hotelName = document.getElementById('sbHotelName')?.textContent || 'Hotel';
+  const fmt       = d => d ? new Date(d).toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'}) : '—';
+  const money     = n => '₹' + Math.round(n || 0).toLocaleString('en-IN');
+
+  const nonVoidedEntries = entries.filter(e => !e.isVoided);
+
+  const w = window.open('', '_blank', 'width=750,height=950');
+  w.document.write(`<!DOCTYPE html><html><head>
+  <meta charset="UTF-8">
+  <title>Invoice ${invoice.invoiceNumber}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;padding:32px;background:#fff}
+    .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #1e3a5f}
+    .hotel-name{font-size:22px;font-weight:700;color:#1e3a5f}
+    .hotel-sub{font-size:11px;color:#666;margin-top:2px}
+    .inv-box{text-align:right}
+    .inv-title{font-size:20px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:1px}
+    .inv-num{font-size:13px;color:#444;margin-top:4px}
+    .inv-date{font-size:11px;color:#888;margin-top:2px}
+    .section{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:20px}
+    .label{font-size:10px;text-transform:uppercase;color:#888;font-weight:600;margin-bottom:2px}
+    .value{font-size:13px;color:#1a1a1a;font-weight:500}
+    .badge{display:inline-block;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;text-transform:uppercase}
+    .badge-ok{background:#dcfce7;color:#166534}
+    .badge-warn{background:#fef9c3;color:#854d0e}
+    table{width:100%;border-collapse:collapse;margin:16px 0}
+    th{background:#1e3a5f;color:#fff;padding:8px 10px;text-align:left;font-size:11px;text-transform:uppercase}
+    th.r,td.r{text-align:right}
+    td{padding:7px 10px;border-bottom:1px solid #e5e7eb;font-size:12px}
+    tr:last-child td{border-bottom:none}
+    tr.voided td{color:#aaa;text-decoration:line-through}
+    .totals-table{width:100%;margin-top:16px}
+    .totals-table td{padding:5px 10px;font-size:13px;border:none}
+    .totals-table .sep{border-top:1px solid #e5e7eb}
+    .totals-table .grand{font-size:16px;font-weight:700;color:#1e3a5f;border-top:2px solid #1e3a5f}
+    .totals-table .balance{font-size:16px;font-weight:700;color:${invoice.balanceDue > 0 ? '#dc2626' : '#16a34a'}}
+    .footer{margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:center;font-size:10px;color:#888}
+    @media print{body{padding:16px}button{display:none}}
+  </style></head><body>
+
+  <!-- HEADER -->
+  <div class="header">
+    <div>
+      <div class="hotel-name">${hotelName}</div>
+      <div class="hotel-sub">Hotel Management System</div>
+    </div>
+    <div class="inv-box">
+      <div class="inv-title">Tax Invoice</div>
+      <div class="inv-num"><strong>${invoice.invoiceNumber}</strong></div>
+      <div class="inv-date">Issued: ${fmt(invoice.issuedAt || invoice.createdAt)}</div>
+    </div>
+  </div>
+
+  <!-- BOOKING & GUEST INFO -->
+  <div class="section">
+    <div>
+      <div class="label">Guest Details</div>
+      <div class="value" style="font-size:15px;font-weight:700">${invoice.guestName || b.guestName || '—'}</div>
+      ${b.guestEmail ? `<div style="font-size:11px;color:#666;margin-top:2px">${b.guestEmail}</div>` : ''}
+      ${b.guestPhone ? `<div style="font-size:11px;color:#666">${b.guestPhone}</div>` : ''}
+    </div>
+    <div>
+      <div class="label">Booking Reference</div>
+      <div class="value" style="font-size:15px;font-weight:700">${invoice.bookingReference || b.bookingReference || '—'}</div>
+      <div style="margin-top:6px"><span class="badge ${b.bookingStatus==='CheckedOut'?'badge-ok':'badge-warn'}">${b.bookingStatus || ''}</span></div>
+    </div>
+  </div>
+
+  <div class="section" style="margin-bottom:20px">
+    <div>
+      <div class="label">Room</div>
+      <div class="value">${invoice.roomNumber || b.roomNumber || '—'} &nbsp;|&nbsp; ${b.roomTypeName || ''}</div>
+      <div style="font-size:11px;color:#666;margin-top:2px">${b.adultsCount || 0} Adult(s), ${b.childrenCount || 0} Child(ren)</div>
+    </div>
+    <div>
+      <div class="label">Stay Period</div>
+      <div class="value">${fmt(b.checkInDate)} → ${fmt(b.checkOutDate)}</div>
+      <div style="font-size:11px;color:#666;margin-top:2px">${b.totalNights || '—'} Night(s) @ ${money(b.roomRate)}/night</div>
+    </div>
+  </div>
+
+  <!-- FOLIO ENTRIES TABLE -->
+  <div class="label" style="margin-bottom:6px">Charge Details</div>
+  <table>
+    <thead>
+      <tr>
+        <th>Description</th>
+        <th>Type</th>
+        <th>Date</th>
+        <th class="r">Amount</th>
+        <th class="r">Tax</th>
+        <th class="r">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- Room charge row derived from booking -->
+      <tr>
+        <td>Room Charges (${b.totalNights || 1} night(s) × ${money(b.roomRate || 0)})</td>
+        <td><span class="badge" style="background:#dbeafe;color:#1e40af">RoomCharge</span></td>
+        <td>${fmt(b.checkInDate)}</td>
+        <td class="r">${money(b.subTotal || 0)}</td>
+        <td class="r">${money(b.taxAmount || 0)}</td>
+        <td class="r"><strong>${money((b.subTotal||0)+(b.taxAmount||0))}</strong></td>
+      </tr>
+      ${b.addonTotal > 0 ? `<tr>
+        <td>Booking Add-Ons</td>
+        <td><span class="badge" style="background:#f3e8ff;color:#6b21a8">AddOn</span></td>
+        <td>${fmt(b.checkInDate)}</td>
+        <td class="r">${money(b.addonTotal)}</td>
+        <td class="r">₹0</td>
+        <td class="r"><strong>${money(b.addonTotal)}</strong></td>
+      </tr>` : ''}
+      ${nonVoidedEntries.map(e => `<tr>
+        <td>${e.description}</td>
+        <td><span class="badge" style="background:#fef9c3;color:#854d0e">${e.entryType}</span></td>
+        <td>${fmt(e.postedAt)}</td>
+        <td class="r">${money(e.amount)}</td>
+        <td class="r">${money(e.taxAmount)}</td>
+        <td class="r"><strong>${money(e.grandAmount)}</strong></td>
+      </tr>`).join('')}
+    </tbody>
+  </table>
+
+  <!-- TOTALS -->
+  <div style="display:flex;justify-content:flex-end">
+    <table class="totals-table" style="max-width:320px">
+      <tr><td>Room Charges</td><td class="r">${money(invoice.roomCharges)}</td></tr>
+      <tr><td>Service Charges</td><td class="r">${money(invoice.serviceCharges)}</td></tr>
+      <tr class="sep"><td>Tax Total</td><td class="r">${money(invoice.taxTotal)}</td></tr>
+      ${invoice.discountTotal > 0 ? `<tr><td>Discounts</td><td class="r" style="color:#16a34a">−${money(invoice.discountTotal)}</td></tr>` : ''}
+      <tr class="grand"><td>Grand Total</td><td class="r grand">${money(invoice.grandTotal)}</td></tr>
+      <tr><td>Amount Paid</td><td class="r" style="color:#16a34a">${money(invoice.amountPaid)}</td></tr>
+      <tr><td><strong>Balance Due</strong></td><td class="r balance">${money(invoice.balanceDue)}</td></tr>
+    </table>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <div>Thank you for staying with us!</div>
+    <div style="margin-top:4px">This is a computer-generated invoice. | ${hotelName}</div>
+  </div>
+
+  <script>window.onload=()=>{ window.print(); }<\/script>
+  </body></html>`);
+  w.document.close();
+}
+
 
 // ═══════════════════════════════════════════════════════════════
 // OMS — ORDER CATALOG
